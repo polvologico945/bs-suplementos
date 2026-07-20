@@ -1,8 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-function createContentSecurityPolicy() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+function createContentSecurityPolicy(): string {
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   let supabaseOrigin = "";
 
@@ -14,21 +15,22 @@ function createContentSecurityPolicy() {
     supabaseOrigin = "";
   }
 
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDevelopment =
+    process.env.NODE_ENV !== "production";
 
   const connectSources = [
     "'self'",
     supabaseOrigin,
-    ...(isDevelopment ? ["ws:", "http:", "https:"] : []),
+    ...(isDevelopment
+      ? ["ws:", "http:", "https:"]
+      : []),
   ].filter(Boolean);
 
   const directives = [
     "default-src 'self'",
 
     `script-src 'self' 'unsafe-inline'${
-      isDevelopment
-        ? " 'unsafe-eval'"
-        : ""
+      isDevelopment ? " 'unsafe-eval'" : ""
     }`,
 
     "style-src 'self' 'unsafe-inline'",
@@ -44,6 +46,12 @@ function createContentSecurityPolicy() {
     "form-action 'self'",
     "frame-ancestors 'none'",
   ];
+
+  if (!isDevelopment) {
+    directives.push("upgrade-insecure-requests");
+  }
+
+  return directives.join("; ");
 }
 
 export async function updateSession(request: NextRequest) {

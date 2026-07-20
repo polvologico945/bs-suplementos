@@ -73,7 +73,7 @@ export default function Storefront() {
       <header className="topbar">
         <a className="brand" href="#inicio">
           <img src={settings.logo_url || "/brand/logo-card.jpg"} alt="BS Suplementos" />
-          <span><strong>{settings.store_name}</strong><small>Catálogo digital</small></span>
+          <span><strong>{settings.store_name}</strong><small>Suplementações</small></span>
         </a>
         <button className="cart-button" onClick={() => setCartOpen(true)} aria-label="Abrir carrinho">
           <ShoppingBag size={21} /><span>Carrinho</span>{count > 0 && <b>{count}</b>}

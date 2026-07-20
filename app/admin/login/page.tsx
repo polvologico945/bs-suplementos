@@ -28,7 +28,7 @@ export default function AdminLogin() {
       <label>E-mail<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" /></label>
       <label>Senha<input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label>
       {error && <div className="form-error">{error}</div>}
-      <button disabled={loading}>{loading ? "Entrando…" : "Entrar com segurança"}</button>
+      <button disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
       <a href="/">← Voltar ao catálogo</a>
     </form>
   </main>;

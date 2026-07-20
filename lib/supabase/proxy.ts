@@ -25,9 +25,9 @@ function createContentSecurityPolicy() {
   const directives = [
     "default-src 'self'",
 
-    `script-src 'self'${
-        isDevelopment
-        ? " 'unsafe-eval' 'unsafe-inline'"
+    `script-src 'self' 'unsafe-inline'${
+      isDevelopment
+        ? " 'unsafe-eval'"
         : ""
     }`,
 
@@ -43,13 +43,7 @@ function createContentSecurityPolicy() {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    ];
-
-    if (!isDevelopment) {
-    directives.push("upgrade-insecure-requests");
-    }
-
-    return directives.join("; ");
+  ];
 }
 
 export async function updateSession(request: NextRequest) {

@@ -29,8 +29,9 @@ import {
 
 const blankProduct: Omit<Product, "id"> = {
   category_id: null,
+  product_type_id: null,
+  brand_id: null,
   name: "",
-  brand: "",
   description: "",
   price: null,
   promotional_price: null,
@@ -59,6 +60,8 @@ export default function AdminDashboard() {
   );
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [productForm, setProductForm] = useState<any>(null);
   const [categoryForm, setCategoryForm] = useState<any>(null);
@@ -97,13 +100,17 @@ export default function AdminDashboard() {
 
   async function refresh() {
     if (!supabase) return;
-    const [p, c, s] = await Promise.all([
+    const [p, c, t, b, s] = await Promise.all([
       supabase.from("products").select("*").order("sort_order"),
       supabase.from("categories").select("*").order("sort_order"),
+      supabase.from("product_types").select("*").order("sort_order"),
+      supabase.from("brands").select("*").order("sort_order"),
       supabase.from("store_settings").select("*").eq("id", 1).single(),
     ]);
     setProducts((p.data || []) as Product[]);
     setCategories((c.data || []) as Category[]);
+    setProductTypes(t.data || []);
+    setBrands(b.data || []);
     setSettings(s.data as StoreSettings);
   }
 
@@ -146,6 +153,17 @@ export default function AdminDashboard() {
       category_id:
         typeof productForm.category_id === "string" && productForm.category_id
           ? productForm.category_id
+          : null,
+
+      product_type_id:
+        typeof productForm.product_type_id === "string" &&
+        productForm.product_type_id
+          ? productForm.product_type_id
+          : null,
+
+      brand_id:
+        typeof productForm.brand_id === "string" && productForm.brand_id
+          ? productForm.brand_id
           : null,
 
       name: sanitizeText(productForm.name, {
@@ -702,6 +720,51 @@ export default function AdminDashboard() {
                   {categories.map((c) => (
                     <option value={c.id} key={c.id}>
                       {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Tipo de produto
+                <select
+                  value={productForm.product_type_id || ""}
+                  onChange={(e) =>
+                    setProductForm({
+                      ...productForm,
+                      product_type_id: e.target.value || null,
+                    })
+                  }
+                >
+                  <option value="">Selecione o tipo</option>
+
+                  {productTypes
+                    .filter(
+                      (type) => !productForm.category_id ||
+                        type.category_id === productForm.category_id
+                    )
+                    .map((type) => (
+                      <option value={type.id} key={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Marca
+                <select
+                  value={productForm.brand_id || ""}
+                  onChange={(e) =>
+                    setProductForm({
+                      ...productForm,
+                      brand_id: e.target.value || null,
+                    })
+                  }
+                >
+                  <option value="">Selecione a marca</option>
+
+                  {brands.map((brand) => (
+                    <option value={brand.id} key={brand.id}>
+                      {brand.name}
                     </option>
                   ))}
                 </select>

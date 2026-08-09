@@ -21,17 +21,19 @@ export type ProductType = {
 export type Product = {
   id: string;
   category_id: string | null;
+  product_type_id: string | null;
+  brand_id: string | null;
   name: string;
   brand: string | null;
   description: string | null;
   price: number | null;
   promotional_price: number | null;
   image_url: string | null;
+  flavors: string[];
   active: boolean;
   featured: boolean;
   stock_status: "available" | "low" | "unavailable";
   sort_order: number;
-  flavors: string[];
 };
 
 export type StoreSettings = {

@@ -42,6 +42,7 @@ const blankProduct: Omit<Product, "id"> = {
   stock_status: "available",
   sort_order: 0,
 };
+
 const blankCategory: Omit<Category, "id"> = {
   name: "",
   slug: "",
@@ -210,6 +211,12 @@ export default function AdminDashboard() {
           max: 9999999,
         },
       ),
+
+      flavors: Array.isArray(productForm.flavors)
+        ? productForm.flavors
+            .map((flavor: string) => sanitizeText(flavor, { maxLength: 80 }))
+            .filter(Boolean)
+        : [],
 
       image_url:
         typeof productForm.image_url === "string"
@@ -1097,6 +1104,77 @@ export default function AdminDashboard() {
                 />{" "}
                 Marcar como destaque
               </label>
+              <div className="wide product-flavors">
+                <div className="flavors-header">
+                  <div>
+                    <strong>Sabores</strong>
+                    <span>
+                      Adicione os sabores disponíveis para este produto.
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="add-flavor"
+                    onClick={() =>
+                      setProductForm({
+                        ...productForm,
+                        flavors: [...(productForm.flavors || []), ""],
+                      })
+                    }
+                  >
+                    <Plus size={16} />
+                    Adicionar sabor
+                  </button>
+                </div>
+
+                <div className="flavors-list">
+                  {(productForm.flavors || []).map(
+                    (flavor: string, index: number) => (
+                      <div className="flavor-row" key={index}>
+                        <input
+                          value={flavor}
+                          placeholder={`Sabor ${index + 1}`}
+                          onChange={(e) => {
+                            const flavors = [...(productForm.flavors || [])];
+                            flavors[index] = e.target.value;
+
+                            setProductForm({
+                              ...productForm,
+                              flavors,
+                            });
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          className="remove-flavor"
+                          aria-label="Remover sabor"
+                          onClick={() => {
+                            const flavors = [...(productForm.flavors || [])];
+                            flavors.splice(index, 1);
+
+                            setProductForm({
+                              ...productForm,
+                              flavors,
+                            });
+                          }}
+                        >
+                          <Minus size={16} />
+                        </button>
+                      </div>
+                    )
+                  )}
+
+                  {(!productForm.flavors ||
+                    productForm.flavors.length === 0) && (
+                    <p className="no-flavors">
+                      Nenhum sabor cadastrado. Se o produto não tiver sabor,
+                      deixe esta lista vazia.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
             <label className="upload-box compact">
               <ImagePlus />

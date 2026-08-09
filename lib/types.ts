@@ -8,23 +8,6 @@ export type Category = {
   active: boolean;
 };
 
-export type Product = {
-  id: string;
-  category_id: string | null;
-  product_type_id: string | null;
-  brand_id: string | null;
-  name: string;
-  brand: string | null;
-  description: string | null;
-  price: number | null;
-  promotional_price: number | null;
-  image_url: string | null;
-  active: boolean;
-  featured: boolean;
-  stock_status: "available" | "low" | "unavailable";
-  sort_order: number;
-};
-
 export type ProductType = {
   id: string;
   category_id: string;
@@ -35,13 +18,20 @@ export type ProductType = {
   active: boolean;
 };
 
-export type Brand = {
+export type Product = {
   id: string;
+  category_id: string | null;
   name: string;
-  slug: string;
+  brand: string | null;
   description: string | null;
-  sort_order: number;
+  price: number | null;
+  promotional_price: number | null;
+  image_url: string | null;
   active: boolean;
+  featured: boolean;
+  stock_status: "available" | "low" | "unavailable";
+  sort_order: number;
+  flavors: string[];
 };
 
 export type StoreSettings = {
@@ -57,4 +47,7 @@ export type StoreSettings = {
   accent_color: string;
 };
 
-export type CartItem = Product & { quantity: number };
+export type CartItem = Product & {
+  quantity: number;
+  flavor?: string;
+};

@@ -14,7 +14,13 @@ import {
   X,
 } from "lucide-react";
 import { loadCatalog } from "@/lib/store";
-import type { CartItem, Category, Product, StoreSettings } from "@/lib/types";
+import type {
+  CartItem,
+  Category,
+  Product,
+  ProductType,
+  StoreSettings,
+} from "@/lib/types";
 
 const money = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -24,17 +30,22 @@ const money = (value: number) =>
 export default function Storefront() {
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedProductType, setSelectedProductType] = useState("all");
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [demo, setDemo] = useState(false);
-
+  const [flavorProduct, setFlavorProduct] = useState<Product | null>(null);
+  const [selectedFlavor, setSelectedFlavor] = useState("");
+  
   useEffect(() => {
     loadCatalog().then((data) => {
       setSettings(data.settings);
       setCategories(data.categories);
+      setProductTypes(data.productTypes);
       setProducts(data.products);
       setDemo(data.demo);
     });
@@ -50,12 +61,23 @@ export default function Storefront() {
     () =>
       products.filter((p) => {
         const categoryMatch =
-          selectedCategory === "all" || p.category_id === selectedCategory;
+          selectedCategory === "all" ||
+          p.category_id === selectedCategory;
+
+        const productTypeMatch =
+          selectedProductType === "all" ||
+          p.product_type_id === selectedProductType;
+
         const text =
           `${p.name} ${p.brand ?? ""} ${p.description ?? ""}`.toLowerCase();
-        return categoryMatch && text.includes(query.toLowerCase());
+
+        return (
+          categoryMatch &&
+          productTypeMatch &&
+          text.includes(query.toLowerCase())
+        );
       }),
-    [products, selectedCategory, query],
+    [products, selectedCategory, selectedProductType, query],
   );
 
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -65,14 +87,16 @@ export default function Storefront() {
     0,
   );
 
-  function addToCart(product: Product) {
+  function addToCart(product: Product, flavor?: string) {
     setCart((current) => {
-      const existing = current.find((i) => i.id === product.id);
+      const existing = current.find(
+        (i) => i.id === product.id && i.flavor === flavor,
+      );
       if (existing)
         return current.map((i) =>
           i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
         );
-      return [...current, { ...product, quantity: 1 }];
+      return [...current, { ...product, quantity: 1, flavor: flavor || null,},];
     });
     setCartOpen(true);
   }
@@ -89,7 +113,17 @@ export default function Storefront() {
     if (!settings || !cart.length) return;
     const lines = cart.map(
       (item) =>
-        `• ${item.quantity}x ${item.name}${item.brand ? ` — ${item.brand}` : ""}${item.price ? ` (${money((item.promotional_price ?? item.price) * item.quantity)})` : ""}`,
+        `• ${item.quantity}x ${item.name}${
+          item.brand ? ` — ${item.brand}` : ""
+        }${
+          item.flavor ? ` — Sabor: ${item.flavor}` : ""
+        }${
+          item.price
+            ? ` (${money(
+                (item.promotional_price ?? item.price) * item.quantity,
+              )})`
+            : ""
+        }`
     );
     const message = [
       "Olá! Vim pelo catálogo da BS Suplementos e quero finalizar este pedido:",
@@ -206,23 +240,69 @@ export default function Storefront() {
               placeholder="Buscar produto, marca ou categoria…"
             />
           </div>
-          <div className="category-pills">
-            <button
-              className={selectedCategory === "all" ? "active" : ""}
-              onClick={() => setSelectedCategory("all")}
-            >
-              Todos
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                className={selectedCategory === c.id ? "active" : ""}
-                onClick={() => setSelectedCategory(c.id)}
-              >
-                {c.name}
-              </button>
-            ))}
+          
+          <div className="catalog-filters">
+
+            <div className="filter-group">
+              <span className="filter-label">Categoria</span>
+
+              <div className="category-pills">
+                <button
+                  className={selectedCategory === "all" ? "active" : ""}
+                  onClick={() => {
+                    setSelectedCategory("all");
+                    setSelectedProductType("all");
+                  }}
+                >
+                  Todos
+                </button>
+
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    className={selectedCategory === c.id ? "active" : ""}
+                    onClick={() => {
+                      setSelectedCategory(c.id);
+                      setSelectedProductType("all");
+                    }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedCategory !== "all" && (
+              <div className="filter-group">
+                <span className="filter-label">Tipo de produto</span>
+
+                <div className="category-pills">
+                  <button
+                    className={selectedProductType === "all" ? "active" : ""}
+                    onClick={() => setSelectedProductType("all")}
+                  >
+                    Todos
+                  </button>
+
+                  {productTypes
+                    .filter((type) => type.category_id === selectedCategory)
+                    .map((type) => (
+                      <button
+                        key={type.id}
+                        className={
+                          selectedProductType === type.id ? "active" : ""
+                        }
+                        onClick={() => setSelectedProductType(type.id)}
+                      >
+                        {type.name}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
           </div>
+
         </div>
 
         <div className="product-grid">
@@ -267,7 +347,14 @@ export default function Storefront() {
                   </div>
                   <button
                     disabled={product.stock_status === "unavailable"}
-                    onClick={() => addToCart(product)}
+                    onClick={() => {
+                      if (product.flavors?.length) {
+                        setFlavorProduct(product);
+                        setSelectedFlavor("");
+                      } else {
+                        addToCart(product);
+                      }
+                    }}
                   >
                     <Plus size={18} /> Adicionar
                   </button>
@@ -365,6 +452,10 @@ export default function Storefront() {
                   <div className="cart-info">
                     <strong>{item.name}</strong>
                     <span>{item.brand}</span>
+
+                    {item.flavor && (
+                      <small>Sabor: {item.flavor}</small>
+                    )}
                     <div className="qty">
                       <button onClick={() => changeQty(item.id, -1)}>
                         <Minus size={15} />
@@ -406,6 +497,56 @@ export default function Storefront() {
               </small>
             </div>
           </aside>
+        </div>
+      )}
+      {flavorProduct && (
+        <div
+          className="flavor-modal-backdrop"
+          onMouseDown={() => setFlavorProduct(null)}
+        >
+          <div
+            className="flavor-modal"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="drawer-header">
+              <div>
+                <span>ESCOLHA UMA OPÇÃO</span>
+                <h2>{flavorProduct.name}</h2>
+              </div>
+
+              <button onClick={() => setFlavorProduct(null)}>
+                <X />
+              </button>
+            </div>
+
+            <p>Selecione o sabor desejado:</p>
+
+            <div className="flavor-options">
+              {flavorProduct.flavors?.map((flavor) => (
+                <button
+                  key={flavor}
+                  className={selectedFlavor === flavor ? "active" : ""}
+                  onClick={() => setSelectedFlavor(flavor)}
+                >
+                  {flavor}
+                </button>
+              ))}
+            </div>
+
+            <button
+              className="checkout"
+              disabled={!selectedFlavor}
+              onClick={() => {
+                addToCart(flavorProduct, selectedFlavor);
+                setFlavorProduct(null);
+                setSelectedFlavor("");
+                setCartOpen(true);
+              }}
+            >
+              Adicionar ao carrinho
+              <ChevronRight size={19} />
+            </button>
+          </div>
         </div>
       )}
     </main>

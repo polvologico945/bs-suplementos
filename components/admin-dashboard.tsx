@@ -32,6 +32,7 @@ const blankProduct: Omit<Product, "id"> = {
   product_type_id: null,
   brand_id: null,
   name: "",
+  brand: "",
   description: "",
   price: null,
   promotional_price: null,
@@ -693,15 +694,6 @@ export default function AdminDashboard() {
                   value={productForm.name}
                   onChange={(e) =>
                     setProductForm({ ...productForm, name: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Marca
-                <input
-                  value={productForm.brand || ""}
-                  onChange={(e) =>
-                    setProductForm({ ...productForm, brand: e.target.value })
                   }
                 />
               </label>

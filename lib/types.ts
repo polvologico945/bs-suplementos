@@ -11,6 +11,8 @@ export type Category = {
 export type Product = {
   id: string;
   category_id: string | null;
+  product_type_id: string | null;
+  brand_id: string | null;
   name: string;
   brand: string | null;
   description: string | null;
@@ -21,6 +23,25 @@ export type Product = {
   featured: boolean;
   stock_status: "available" | "low" | "unavailable";
   sort_order: number;
+};
+
+export type ProductType = {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  sort_order: number;
+  active: boolean;
+};
+
+export type Brand = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  sort_order: number;
+  active: boolean;
 };
 
 export type StoreSettings = {

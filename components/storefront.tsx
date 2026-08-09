@@ -88,23 +88,53 @@ export default function Storefront() {
   );
 
   function addToCart(product: Product, flavor?: string) {
+    const selected = flavor || null;
+
     setCart((current) => {
       const existing = current.find(
-        (i) => i.id === product.id && i.flavor === flavor,
+        (item) =>
+          item.id === product.id &&
+          item.flavor === selected
       );
-      if (existing)
-        return current.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
+
+      if (existing) {
+        return current.map((item) =>
+          item.id === product.id &&
+          item.flavor === selected
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+              }
+            : item
         );
-      return [...current, { ...product, quantity: 1, flavor: flavor || null,},];
+      }
+
+      return [
+        ...current,
+        {
+          ...product,
+          quantity: 1,
+          flavor: selected,
+        },
+      ];
     });
+
     setCartOpen(true);
   }
 
-  function changeQty(id: string, delta: number) {
+  function changeQty(
+    id: string,
+    flavor: string | null | undefined,
+    delta: number,
+  ) {
     setCart((current) =>
       current.map((i) =>
-        i.id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i,
+        i.id === id && i.flavor === flavor
+          ? {
+              ...i,
+              quantity: Math.max(1, i.quantity + delta),
+            }
+          : i,
       ),
     );
   }
@@ -457,11 +487,15 @@ export default function Storefront() {
                       <small>Sabor: {item.flavor}</small>
                     )}
                     <div className="qty">
-                      <button onClick={() => changeQty(item.id, -1)}>
+                      <button
+                        onClick={() => changeQty(item.id, item.flavor, -1)}
+                      >
                         <Minus size={15} />
                       </button>
                       <b>{item.quantity}</b>
-                      <button onClick={() => changeQty(item.id, 1)}>
+                        <button
+                          onClick={() => changeQty(item.id, item.flavor, 1)}
+                        >
                         <Plus size={15} />
                       </button>
                     </div>
@@ -469,7 +503,12 @@ export default function Storefront() {
                   <button
                     className="remove"
                     onClick={() =>
-                      setCart(cart.filter((i) => i.id !== item.id))
+                      setCart(
+                        cart.filter(
+                          (i) =>
+                            !(i.id === item.id && i.flavor === item.flavor)
+                        )
+                      )
                     }
                   >
                     <Trash2 size={18} />

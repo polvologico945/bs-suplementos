@@ -468,7 +468,10 @@ export default function Storefront() {
                 </div>
               )}
               {cart.map((item) => (
-                <div className="cart-item" key={item.id}>
+                <div
+                  className="cart-item"
+                  key={`${item.id}-${item.flavor ?? "sem-sabor"}`}
+                >
                   <div className="cart-thumb">
                     {item.image_url ? (
                       <img src={item.image_url} alt="" />

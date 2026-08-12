@@ -51,5 +51,5 @@ export type StoreSettings = {
 
 export type CartItem = Product & {
   quantity: number;
-  flavor?: string;
+  flavor?: string | null;
 };

@@ -500,6 +500,7 @@ footer {
   border-bottom: 1px solid #e4e9e6;
   display: flex;
   justify-content: space-between;
+  position: relative;
 }
 .drawer-header span,
 .modal-title span,
@@ -509,11 +510,27 @@ footer {
   letter-spacing: 0.16em;
   color: var(--primary);
 }
+
 .drawer-header h2,
 .modal-title h2 {
-  margin: 4px 0 0;
+  margin: 10px 0 0;
+  text-transform: uppercase;
 }
-.drawer-header button,
+
+.drawer-header button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 0;
+  background: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
 .modal-title button {
   border: 0;
   background: #edf1ee;
@@ -607,6 +624,117 @@ header{
   gap: 8px;
   cursor: pointer;
 }
+
+.flavor-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 23px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.flavor-options button {
+  border: 2px solid #d6e2da;
+  background: #f8faf8;
+  color: #185b34;
+
+  border-radius: 12px;
+
+  min-height: 44px;
+  padding: 0 12px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.flavor-options button {
+  appearance: none;
+  -webkit-appearance: none;
+
+  border: 1px solid #d8e1db;
+  background: #ffffff;
+  color: #1b6037;
+
+  border-radius: 12px;
+
+  min-height: 46px;
+  padding: 0 17px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* PASSOU O MOUSE */
+.flavor-options button:hover {
+  background: #edf8f1;
+  border-color: #168849;
+  color: #145b32;
+
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 6px 14px rgba(27, 96, 55, 0.14);
+}
+
+/* FOI SELECIONADO */
+.flavor-options button.active {
+  background: #1b6037;
+  color: #ffffff;
+
+  border-color: #1cac55;
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 6px 16px rgba(27, 96, 55, 0.28);
+}
+
+/* CLIQUE / PRESSIONANDO */
+.flavor-options button:active {
+  transform: scale(0.97);
+}
+
+/* MANTÉM O ESTILO SE TAMBÉM USAR .selected */
+.flavor-options button.selected {
+  background: #1b6037;
+  color: #ffffff;
+  border-color: #1cac55;
+
+  box-shadow:
+    0 6px 16px rgba(27, 96, 55, 0.28);
+}
+
 .checkout:disabled {
   opacity: 0.4;
 }
@@ -719,94 +847,125 @@ header{
   margin-top: 13px;
   font-size: 13px;
 }
+
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
 .admin-shell {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 260px 1fr;
   background: #011701;
 }
-.admin-sidebar {
-  background: rgb(3, 48, 21);
-  color: white;
-  padding: 24px 18px;
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
+
+/* LOGO */
 .admin-brand {
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 11px;
   padding: 0 6px 25px;
   border-bottom: 1px solid #ffffff12;
 }
+
 .admin-brand img {
   width: 46px;
   height: 46px;
   object-fit: cover;
   border-radius: 12px;
 }
+
 .admin-brand div {
   display: flex;
   flex-direction: column;
 }
+
 .admin-brand span {
   font-size: 11px;
   color: #8f9a93;
 }
-.admin-sidebar nav {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-top: 22px;
-}
+
+
+/* TODOS OS BOTÕES DA SIDEBAR */
 .admin-sidebar nav button,
 .admin-sidebar-bottom button,
 .admin-sidebar-bottom a {
+  width: 210px;
+  max-width: 100%;
+  min-height: 44px;
+
   border: 0;
   background: transparent;
   color: #b7c0ba;
-  padding: 12px;
+
+  padding: 12px 14px;
   border-radius: 10px;
+
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+
   gap: 10px;
+
   text-align: left;
   text-decoration: none;
   cursor: pointer;
 }
+
+/* ÍCONES */
 .admin-sidebar nav button svg,
-.admin-sidebar-bottom svg {
+.admin-sidebar-bottom button svg,
+.admin-sidebar-bottom a svg {
   width: 18px;
+  min-width: 18px;
+  height: 18px;
 }
+
+/* ITEM ATIVO */
 .admin-sidebar nav button.active {
   background: #168849;
   color: white;
 }
+
+/* PARTE INFERIOR */
 .admin-sidebar-bottom {
+  width: 100%;
   margin-top: auto;
+
   display: flex;
   flex-direction: column;
+  align-items: center;
+
+  gap: 7px;
+
   border-top: 1px solid #ffffff12;
   padding-top: 15px;
 }
+
+/* CONTEÚDO */
 .admin-content {
   padding: 36px;
   min-width: 0;
 }
+
 .admin-content > header {
   display: flex;
   align-items: end;
   justify-content: space-between;
   margin-bottom: 25px;
 }
+
 .admin-content h1 {
   font-size: 38px;
   margin: 5px 0 0;
   letter-spacing: -0.04em;
 }
+
 .admin-primary {
   padding: 0 17px;
   display: inline-flex;
@@ -814,9 +973,11 @@ header{
   gap: 8px;
   margin: 0;
 }
+
 .admin-primary svg {
   width: 18px;
 }
+
 .admin-message {
   background: #e7f5ec;
   color: #106b36;
@@ -828,6 +989,7 @@ header{
   justify-content: space-between;
   cursor: pointer;
 }
+
 .admin-table-wrap {
   background: rgb(230, 234, 230);
   border: 1px solid #d2e6d2;
@@ -835,6 +997,7 @@ header{
   overflow: auto;
   color: black;
 }
+
 .admin-table-wrap table {
   width: 100%;
   border-collapse: collapse;
@@ -1069,49 +1232,58 @@ header{
     padding: 28px;
   }
 }
+
 @media (max-width: 800px) {
-  .product-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .section-heading {
-    flex-direction: column;
-    align-items: start;
-  }
-  .contact-strip {
-    flex-direction: column;
-    align-items: start;
-  }
-  footer {
-    grid-template-columns: 1fr;
-  }
   .admin-shell {
     display: block;
   }
+
   .admin-sidebar {
+    width: 100%;
     height: auto;
     position: relative;
   }
+
   .admin-sidebar nav {
-    flex-direction: row;
-    overflow: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    margin-top: 22px;
+    overflow: visible;
   }
+
   .admin-sidebar-bottom {
-    display: none;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: initial;
+    margin-top: 15px;
+    gap: 7px;
+    border-top: 1px solid #ffffff12;
+    padding-top: 15px;
   }
+
   .admin-content {
     padding: 20px;
   }
+
   .admin-cards {
     grid-template-columns: 1fr;
   }
+
   .form-grid,
   .upload-grid {
     grid-template-columns: 1fr;
   }
+
   .form-grid label.wide {
     grid-column: auto;
   }
 }
+
 @media (max-width: 560px) {
   .catalog-section {
     padding: 48px 12px;
@@ -1198,3 +1370,356 @@ header{
     display: none;
   }
 }
+/* =========================
+   SABORES DO PRODUTO
+   ========================= */
+
+.product-flavors {
+  grid-column: 1 / -1;
+  background: #f8faf8;
+  border: 1px solid #dce5df;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.flavors-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.flavors-header h3 {
+  margin: 0;
+  color: #0f4b23;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.flavors-header span {
+  color: #69736d;
+  font-size: 12px;
+}
+
+.flavors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flavor-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.flavor-row input,
+.flavor-row select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #dce3df;
+  border-radius: 11px;
+  padding: 12px 13px;
+  outline: none;
+  background: white;
+  color: #111613;
+}
+
+.flavor-row input:focus,
+.flavor-row select:focus {
+  border-color: #178c4c;
+  box-shadow: 0 0 0 3px #178c4c18;
+}
+
+.add-flavor {
+  border: 1px dashed #137b39;
+  background: #edf8f1;
+  color: #087b3a;
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background .18s ease,
+    border-color .18s ease,
+    transform .18s ease;
+}
+
+.add-flavor:hover {
+  background: #e2f3e8;
+  border-color: #0b8240;
+  transform: translateY(-1px);
+}
+
+.add-flavor:active {
+  transform: scale(.98);
+}
+
+.remove-flavor {
+  border: 1px solid #ead5d5;
+  background: #fff5f5;
+  color: #a32929;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background .18s ease,
+    border-color .18s ease,
+    color .18s ease,
+    transform .18s ease;
+}
+
+.remove-flavor:hover {
+  background: #ffe8e8;
+  border-color: #d99b9b;
+  color: #8e1f1f;
+  transform: translateY(-1px);
+}
+
+.remove-flavor:active {
+  transform: scale(.96);
+}
+
+
+/* =========================
+   COMPATIBILIDADE COM FORM-GRID
+   ========================= */
+
+.form-grid .product-flavors {
+  grid-column: 1 / -1;
+}
+
+
+/* =========================
+   MODAL DE PRODUTO
+   ========================= */
+
+.admin-modal .product-flavors {
+  margin-top: 2px;
+}
+
+
+/* =========================
+   RESPONSIVO
+   ========================= */
+
+@media (max-width: 560px) {
+  .product-flavors {
+    padding: 13px;
+  }
+
+  .flavors-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .flavor-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .add-flavor {
+    width: 100%;
+  }
+}
+
+/* =========================
+   JANELA DE SELEÇÃO DE SABOR
+   ========================= */
+
+.flavor-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #000000b8;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow: auto;
+  text-align: center;
+  align-items: center;
+}
+
+.flavor-modal {
+  width: min(460px, 100%);
+  background: rgb(35, 27, 27);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 30px 80px rgba(0, 255, 76, 0.467);
+  animation: flavorModalIn .18s ease-out;
+  color: green;
+}
+
+@keyframes flavorModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.flavor-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.flavor-modal-header div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.flavor-modal-header span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  color: var(--primary);
+  text-transform: uppercase;
+}
+
+.flavor-modal-header h2 {
+  margin: 0;
+  color: #111613;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.flavor-modal-close {
+  border: 0;
+  background: #edf1ee;
+  color: #1b211d;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.flavor-modal-close:hover {
+  background: #e1e7e3;
+}
+
+.flavors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flavor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flavor-row button {
+  width: 100%;
+}
+
+.flavor-empty {
+  padding: 25px 15px;
+  text-align: center;
+  color: #69736d;
+  background: #f8faf8;
+  border-radius: 12px;
+}
+
+.flavor-confirm {
+  width: 100%;
+  height: 48px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--primary);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.flavor-confirm:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+
+/* =========================
+   BOTÃO ESCOLHER SABOR
+   ========================= */
+
+.choose-flavor {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #d8e1db;
+  background: #f7faf8;
+  color: #176536;
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background .18s ease,
+    border-color .18s ease;
+  
+}
+
+.choose-flavor:hover {
+  background: #edf8f1;
+  border-color: #168849;
+}
+
+.choose-flavor span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choose-flavor svg {
+  flex-shrink: 0;
+}
+
+
+/* =========================
+   MOBILE
+   ========================= */
+
+@media (max-width: 560px) {
+  .flavor-modal-backdrop {
+    padding: 12px;
+  }
+
+  .flavor-modal {
+    width: 100%;
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .flavor-modal-header h2 {
+    font-size: 21px;
+  }
+}
+

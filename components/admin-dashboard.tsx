@@ -70,7 +70,7 @@ const blankBrand = {
   sort_order: 0,
   active: true,
 };
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/jpg", "image/gif", "image/heic", "image/HEIC"]);
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
@@ -150,6 +150,10 @@ export default function AdminDashboard() {
       "image/jpeg": "jpg",
       "image/png": "png",
       "image/webp": "webp",
+      "image/jpg": "jpg",
+      "image/gif": "gif",
+      "image/heic": "heic",
+      "image/HEIC": "HEIC",
     };
 
     const ext = extensionByMime[file.type];
@@ -479,6 +483,7 @@ export default function AdminDashboard() {
             <span>Administração</span>
           </div>
         </div>
+        
         <nav>
           <button
             className={tab === "products" ? "active" : ""}
@@ -486,33 +491,37 @@ export default function AdminDashboard() {
           >
             <Package /> Produtos
           </button>
+          
           <button
             className={tab === "categories" ? "active" : ""}
             onClick={() => setTab("categories")}
           >
             <Boxes /> Categorias
           </button>
+
+          {/* Mova estes para fora do botão de settings */}
+          <button
+            className={tab === "product-types" ? "active" : ""}
+            onClick={() => setTab("product-types")}
+          >
+            <Boxes /> Tipos de produto
+          </button>
+
+          <button
+            className={tab === "brands" ? "active" : ""}
+            onClick={() => setTab("brands")}
+          >
+            <Boxes /> Marcas
+          </button>
+
           <button
             className={tab === "settings" ? "active" : ""}
             onClick={() => setTab("settings")}
           >
-            <button
-              className={tab === "product-types" ? "active" : ""}
-              onClick={() => setTab("product-types")}
-            >
-              <Boxes /> Tipos de produto
-            </button>
-
-            <button
-              className={tab === "brands" ? "active" : ""}
-              onClick={() => setTab("brands")}
-            >
-              <Boxes /> Marcas
-            </button>
-
             <Settings /> Aparência e loja
           </button>
         </nav>
+
         <div className="admin-sidebar-bottom">
           <a href="/" target="_blank">
             <LayoutDashboard /> Ver catálogo

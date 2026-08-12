@@ -19,9 +19,15 @@ export async function loadCatalog(): Promise<{
   products: Product[];
   demo: boolean;
 }> {
+  console.log("1. Iniciando loadCatalog");
+
   const supabase = createClient();
 
+  console.log("2. Supabase:", supabase);
+
   if (!supabase) {
+    console.log("3. Sem Supabase → modo demo");
+
     return {
       settings: demoSettings,
       categories: demoCategories,
@@ -30,6 +36,8 @@ export async function loadCatalog(): Promise<{
       demo: true,
     };
   }
+
+  console.log("4. Consultando Supabase...");
 
   const [
     settingsRes,
@@ -62,18 +70,67 @@ export async function loadCatalog(): Promise<{
       .order("sort_order"),
   ]);
 
+  console.log("5. Resultado Supabase:", {
+    settingsRes,
+    categoriesRes,
+    productTypesRes,
+    productsRes,
+  });
+
+  console.log(
+  "7. Produtos recebidos:",
+  productsRes.data
+);
+
+console.log(
+  "8. Sabores recebidos:",
+  productsRes.data?.map((product) => ({
+    id: product.id,
+    name: product.name,
+    flavors: product.flavors,
+  }))
+);
+
+  if (settingsRes.error) {
+    console.error(
+      "Erro em store_settings:",
+      settingsRes.error
+    );
+  }
+
+  if (categoriesRes.error) {
+    console.error(
+      "Erro em categories:",
+      categoriesRes.error
+    );
+  }
+
+  if (productTypesRes.error) {
+    console.error(
+      "Erro em product_types:",
+      productTypesRes.error
+    );
+  }
+
+  if (productsRes.error) {
+    console.error(
+      "Erro em products:",
+      productsRes.error
+    );
+  }
+
+  /*
+   * Se product_types falhar,
+   * não derrubamos o catálogo inteiro.
+   */
+
   if (
     settingsRes.error ||
     categoriesRes.error ||
-    productTypesRes.error ||
     productsRes.error
   ) {
     console.warn(
-      "Catálogo em modo demonstração:",
-      settingsRes.error?.message ||
-        categoriesRes.error?.message ||
-        productTypesRes.error?.message ||
-        productsRes.error?.message,
+      "Erro crítico ao carregar catálogo. Usando modo demo."
     );
 
     return {
@@ -85,10 +142,14 @@ export async function loadCatalog(): Promise<{
     };
   }
 
+  console.log("6. Catálogo carregado com sucesso");
+
   return {
     settings: settingsRes.data as StoreSettings,
     categories: categoriesRes.data as Category[],
-    productTypes: productTypesRes.data as ProductType[],
+    productTypes: productTypesRes.error
+      ? []
+      : (productTypesRes.data as ProductType[]),
     products: productsRes.data as Product[],
     demo: false,
   };

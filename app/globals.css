@@ -1722,4 +1722,8 @@ header{
     font-size: 21px;
   }
 }
-
+.admin-header-actions{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

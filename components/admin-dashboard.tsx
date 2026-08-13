@@ -139,7 +139,7 @@ export default function AdminDashboard() {
   async function upload(file: File, folder: string) {
     if (!supabase) return null;
     if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      throw new Error("Formato inválido. Use JPG, PNG ou WEBP.");
+      throw new Error("Formato inválido. Use JPG, PNG, HEIC ou WEBP.");
     }
 
     if (file.size > MAX_IMAGE_SIZE) {
@@ -175,31 +175,16 @@ export default function AdminDashboard() {
 
     if (!supabase || !productForm) return;
 
-    const data = {
-      category_id:
-        typeof productForm.category_id === "string" && productForm.category_id
-          ? productForm.category_id
-          : null,
+    const data: any = {
+      // Mantemos apenas os IDs para as relações com outras tabelas
+      category_id: productForm.category_id || null,
+      product_type_id: productForm.product_type_id || null,
+      brand_id: productForm.brand_id || null,
 
-      product_type_id:
-        typeof productForm.product_type_id === "string" &&
-        productForm.product_type_id
-          ? productForm.product_type_id
-          : null,
-
-      brand_id:
-        typeof productForm.brand_id === "string" && productForm.brand_id
-          ? productForm.brand_id
-          : null,
-
-      name: sanitizeText(productForm.name, {
-        maxLength: 120,
-      }),
-
-      brand: sanitizeNullableText(productForm.brand, {
-        maxLength: 80,
-      }),
-
+      name: sanitizeText(productForm.name, { maxLength: 120 }),
+      
+      // REMOVIDO: a linha 'brand: ...' foi removida para evitar conflito com 'brand_id'
+      
       description: sanitizeNullableText(productForm.description, {
         maxLength: 1500,
         multiline: true,
@@ -210,13 +195,10 @@ export default function AdminDashboard() {
         max: 9999999,
       }),
 
-      promotional_price: sanitizeNonNegativeNumber(
-        productForm.promotional_price,
-        {
-          nullable: true,
-          max: 9999999,
-        },
-      ),
+      promotional_price: sanitizeNonNegativeNumber(productForm.promotional_price, {
+        nullable: true,
+        max: 9999999,
+      }),
 
       flavors: Array.isArray(productForm.flavors)
         ? productForm.flavors
@@ -224,20 +206,12 @@ export default function AdminDashboard() {
             .filter(Boolean)
         : [],
 
-      image_url:
-        typeof productForm.image_url === "string"
-          ? productForm.image_url
-          : null,
-
+      image_url: typeof productForm.image_url === "string" ? productForm.image_url : null,
       active: Boolean(productForm.active),
       featured: Boolean(productForm.featured),
-
-      stock_status: ["available", "low", "unavailable"].includes(
-        productForm.stock_status,
-      )
+      stock_status: ["available", "low", "unavailable"].includes(productForm.stock_status)
         ? productForm.stock_status
         : "available",
-
       sort_order: sanitizeInteger(productForm.sort_order),
     };
 
@@ -246,22 +220,20 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (
-      data.promotional_price !== null &&
-      data.price !== null &&
-      data.promotional_price > data.price
-    ) {
-      setMessage("O preço promocional não pode ser maior que o preço normal.");
-      return;
+    
+    if (data.brand_id) {
+      const selectedBrand = brands.find(b => b.id === data.brand_id);
+      if (selectedBrand) data.brand = selectedBrand.name;
     }
 
     const result = productForm.id
       ? await supabase.from("products").update(data).eq("id", productForm.id)
       : await supabase.from("products").insert(data);
 
-    setMessage(result.error ? result.error.message : "Produto salvo.");
-
-    if (!result.error) {
+    if (result.error) {
+      setMessage("Erro ao salvar: " + result.error.message);
+    } else {
+      setMessage("Produto salvo com sucesso!");
       setProductForm(null);
       await refresh();
     }

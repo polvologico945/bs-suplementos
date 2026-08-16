@@ -527,48 +527,52 @@ export default function AdminDashboard() {
           </div>
           {tab === "products" && (
             <div className="admin-header-actions">
-              <button
-                className="admin-primary"
-                onClick={() => setCategoryMenuOpen(!categoryMenuOpen)}
-              >
-                <Boxes />
 
-                {categoryFilter === "all"
-                  ? "Todas"
-                  : categories.find((c) => c.id === categoryFilter)?.name}
-              </button>
+              <div className="category-filter-wrapper">
+                <button
+                  className="admin-primary"
+                  onClick={() => setCategoryMenuOpen(!categoryMenuOpen)}
+                >
+                  <Boxes />
 
-              {categoryMenuOpen && (
-                <div className="category-dropdown">
-                  <button
-                    onClick={() => {
-                      setCategoryFilter("all");
-                      setCategoryMenuOpen(false);
-                    }}
-                  >
-                    Todas
-                  </button>
+                  {categoryFilter === "all"
+                    ? "Todos"
+                    : categories.find((c) => c.id === categoryFilter)?.name}
+                </button>
 
-                  {categories.map((c) => (
+                {categoryMenuOpen && (
+                  <div className="category-dropdown">
                     <button
-                      key={c.id}
                       onClick={() => {
-                        setCategoryFilter(c.id);
+                        setCategoryFilter("all");
                         setCategoryMenuOpen(false);
                       }}
                     >
-                      {c.name}
+                      Todas
                     </button>
-                  ))}
-                </div>
-              )}
-              
+
+                    {categories.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setCategoryFilter(c.id);
+                          setCategoryMenuOpen(false);
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button
                 className="admin-primary"
                 onClick={() => setProductForm({ ...blankProduct })}
               >
                 <Plus /> Novo produto
               </button>
+
             </div>
           )}
           {tab === "categories" && (

@@ -181,8 +181,8 @@ a {
 .section-heading {
   display: flex;
   justify-content: space-between;
-  align-items: end;
-  gap: 40px;
+  align-items: center;
+  gap: 30px;
   margin-bottom: 34px;
 }
 .section-heading h2 {
@@ -967,6 +967,9 @@ header{
 }
 
 .admin-primary {
+  position: relative;
+  display: inline-block;
+  
   padding: 0 17px;
   display: inline-flex;
   align-items: center;
@@ -976,6 +979,54 @@ header{
 
 .admin-primary svg {
   width: 18px;
+}
+
+.category-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+
+  width: 190px;
+  max-height: 320px;
+  overflow-y: auto;
+
+  padding: 10px;
+
+  background: #e7f5ec;
+  color: #106b36;
+
+  border: 1px solid #12f86a;
+  border-radius: 12px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  z-index: 1000;
+}
+
+.category-dropdown button {
+  width: 100%;
+  padding: 7px 10px;
+
+  background: transparent;
+  color: #106b36;
+
+  border: none;
+  border-radius: 7px;
+
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 15px;
+
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.category-dropdown button:hover {
+  background: #12f86a;
+  color: #063b1c;
 }
 
 .admin-message {
@@ -1722,8 +1773,13 @@ header{
     font-size: 21px;
   }
 }
-.admin-header-actions{
+.admin-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.category-filter-wrapper {
+  position: relative;
+  display: inline-block;
 }

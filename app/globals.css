@@ -196,7 +196,8 @@ a {
   line-height: 1.6;
 }
 .catalog-tools {
-  display: grid;
+  display: relative;
+  flex-wrap: wrap;
   gap: 18px;
   margin-bottom: 30px;
 }

@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -336,16 +336,26 @@ export default function Storefront() {
         </div>
 
         <div className="product-grid">
-          {filtered.map((product) => (
+          {filtered.map((product, index) => (
             <article className="product-card" key={product.id}>
-              <div className="product-image">
+              <div className="product-image" style={{ position: "relative", width: "100%", height: "240px", overflow: "hidden" }}>
                 {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} />
+                  <Image
+                    src={product.image_url}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    style={{ objectFit: "cover" }}
+                    priority={index < 2}
+                    loading={index >= 2 ? "lazy" : undefined}
+                  />
                 ) : (
-                  <div className="image-placeholder">
-                    <img
+                  <div className="image-placeholder" style={{ position: "relative", width: "100%", height: "100%" }}>
+                    <Image
                       src={settings.logo_url || "/brand/logo-card.jpg"}
                       alt=""
+                      fill
+                      style={{ objectFit: "contain", padding: "20px" }}
                     />
                   </div>
                 )}
@@ -354,6 +364,7 @@ export default function Storefront() {
                   <span className="stock unavailable">Indisponível</span>
                 )}
               </div>
+              
               <div className="product-body">
                 <span className="brand-name">
                   {product.brand || "BS Suplementos"}
@@ -472,15 +483,14 @@ export default function Storefront() {
                   className="cart-item"
                   key={`${item.id}-${item.flavor ?? "sem-sabor"}`}
                 >
-                  <div className="cart-thumb">
-                    {item.image_url ? (
-                      <img src={item.image_url} alt="" />
-                    ) : (
-                      <img
-                        src={settings.logo_url || "/brand/logo-card.jpg"}
-                        alt=""
-                      />
-                    )}
+                  <div className="cart-thumb" style={{ overflow: "hidden", borderRadius: "6px" }}>
+                    <Image 
+                      src={item.image_url || settings.logo_url || "/brand/logo-card.jpg"} 
+                      alt="" 
+                      width={60} 
+                      height={60} 
+                      style={{ objectFit: "cover" }}
+                    />
                   </div>
                   <div className="cart-info">
                     <strong>{item.name}</strong>

@@ -162,3 +162,101 @@ describe("migração do banco anterior", () => {
     }
   });
 });
+
+describe("galerias no PostgreSQL", () => {
+  it("normaliza fotos e sincroniza a principal, inclusive ao reordenar ou limpar a galeria", async () => {
+    await db.exec(
+      "insert into public.products(name,image_url,image_urls) values ('Galeria','antiga.jpg',array[' frente.jpg ','costas.jpg','frente.jpg','',null]);",
+    );
+    expect(
+      (
+        await query(
+          "select image_url,image_urls from public.products where name='Galeria'",
+        )
+      ).rows,
+    ).toEqual([
+      { image_url: "frente.jpg", image_urls: ["frente.jpg", "costas.jpg"] },
+    ]);
+    await db.exec(
+      "update public.products set image_urls=array['costas.jpg','frente.jpg'] where name='Galeria';",
+    );
+    expect(
+      (
+        await query(
+          "select image_url from public.products where name='Galeria'",
+        )
+      ).rows,
+    ).toEqual([{ image_url: "costas.jpg" }]);
+    await db.exec(
+      "update public.products set image_url='nova.jpg' where name='Galeria';",
+    );
+    expect(
+      (
+        await query(
+          "select image_urls from public.products where name='Galeria'",
+        )
+      ).rows,
+    ).toEqual([{ image_urls: ["nova.jpg", "frente.jpg"] }]);
+    await db.exec(
+      "update public.products set image_urls='{}' where name='Galeria';",
+    );
+    expect(
+      (
+        await query(
+          "select image_url,image_urls from public.products where name='Galeria'",
+        )
+      ).rows,
+    ).toEqual([{ image_url: null, image_urls: [] }]);
+  });
+  it("limita a seis fotos e preserva a ordem da capa ao reexecutar o schema", async () => {
+    await db.exec(
+      "update public.store_settings set hero_image_urls=array['capa.jpg','detalhe.jpg','capa.jpg'] where id=1;",
+    );
+    await db.exec(await readFile("supabase/schema.sql", "utf8"));
+    expect(
+      (
+        await query(
+          "select hero_image_url,hero_image_urls from public.store_settings where id=1",
+        )
+      ).rows,
+    ).toEqual([
+      {
+        hero_image_url: "capa.jpg",
+        hero_image_urls: ["capa.jpg", "detalhe.jpg"],
+      },
+    ]);
+    await expect(
+      query(
+        "insert into public.products(name,image_urls) select 'Excesso',array_agg(i::text) from generate_series(1,7) i",
+      ),
+    ).rejects.toThrow(/6 fotos/);
+    await expect(
+      query(
+        "update public.store_settings set hero_image_urls=array['1','2','3','4','5','6','7']",
+      ),
+    ).rejects.toThrow(/6 fotos/);
+  });
+  it("a galeria continua protegida pela permissão de administrador", async () => {
+    await db.exec(
+      `set role authenticated; set request.jwt.claim.sub='${viewer}';`,
+    );
+    try {
+      expect(
+        (
+          await query(
+            "update public.store_settings set hero_image_urls=array['invasao.jpg'] returning id",
+          )
+        ).rows,
+      ).toEqual([]);
+      expect(
+        (
+          await query(
+            "update public.products set image_urls=array['invasao.jpg'] returning id",
+          )
+        ).rows,
+      ).toEqual([]);
+    } finally {
+      await db.exec("reset role;");
+    }
+  });
+});

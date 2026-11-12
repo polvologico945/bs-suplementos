@@ -23,11 +23,28 @@ export function Modal({
     const previous = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Problema: aria-modal sozinho não impede leitura/cliques atrás da galeria.
+    // Isola os irmãos de cada ancestral e restaura seus estados ao fechar.
+    // Data: 2026-11-12. @author Carla Evelyn
+    const isolated: { element: HTMLElement; inert: boolean }[] = [];
+    let ancestor: HTMLElement | null = ref.current;
+    while (ancestor && ancestor !== document.body) {
+      for (const sibling of ancestor.parentElement?.children || []) {
+        if (sibling !== ancestor && sibling instanceof HTMLElement) {
+          isolated.push({ element: sibling, inert: sibling.inert });
+          sibling.inert = true;
+        }
+      }
+      ancestor = ancestor.parentElement;
+    }
     const getFocusable = () =>
       Array.from(
         ref.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), a[href], input:not(:disabled), select, textarea, [tabindex="0"]',
+          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
         ) || [],
+      ).filter(
+        (element) =>
+          element.getClientRects().length > 0 && !element.closest("[inert]"),
       );
     (getFocusable()[0] || ref.current)?.focus();
     function handleKey(event: KeyboardEvent) {
@@ -52,11 +69,20 @@ export function Modal({
         first.focus();
       }
     }
+    function keepFocus(event: FocusEvent) {
+      if (event.target instanceof Node && !ref.current?.contains(event.target))
+        (getFocusable()[0] || ref.current)?.focus();
+    }
     document.addEventListener("keydown", handleKey);
+    document.addEventListener("focusin", keepFocus);
     return () => {
       document.body.style.overflow = overflow;
       document.removeEventListener("keydown", handleKey);
-      previous?.focus();
+      document.removeEventListener("focusin", keepFocus);
+      isolated.forEach(({ element, inert }) => {
+        element.inert = inert;
+      });
+      if (previous?.isConnected) previous.focus();
     };
   }, []);
   return (

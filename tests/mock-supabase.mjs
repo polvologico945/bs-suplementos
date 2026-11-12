@@ -34,6 +34,7 @@ const settings = {
   address: "Baturité/CE",
   logo_url: "/brand/logo-card.jpg",
   hero_image_url: "/brand/card-front.jpg",
+  hero_image_urls: ["/brand/card-front.jpg"],
   primary_color: "#07883d",
   accent_color: "#c32222",
 };
@@ -57,6 +58,7 @@ const product = {
   price: 100,
   promotional_price: 80,
   image_url: `${origin}/storage/v1/object/public/catalog/products/test.jpg`,
+  image_urls: [`${origin}/storage/v1/object/public/catalog/products/test.jpg`],
   flavors: ["Chocolate", "Morango"],
   active: true,
   featured: true,
@@ -132,6 +134,14 @@ const server = createServer(async (req, res) => {
   }
   if (url.pathname === "/__product") {
     Object.assign(tables.products[0], JSON.parse((await body()).toString()));
+    json({ ok: true });
+    return;
+  }
+  if (url.pathname === "/__settings") {
+    Object.assign(
+      tables.store_settings[0],
+      JSON.parse((await body()).toString()),
+    );
     json({ ok: true });
     return;
   }

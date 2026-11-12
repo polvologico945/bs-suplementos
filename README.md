@@ -49,6 +49,7 @@ Os testes de navegador iniciam um Supabase simulado **local**, compilam o aplica
 
 ## Documentação
 
+- [Galerias de produtos/capa e acessibilidade](docs/GALERIAS-E-ACESSIBILIDADE.md)
 - [Recuperação e alteração de senha](docs/RECUPERACAO-DE-SENHA.md)
 - [Projeto completo, arquitetura e relações SQL](docs/PROJETO.md)
 - [Comparação de hospedagem e custos](docs/HOSPEDAGEM.md)
@@ -112,3 +113,14 @@ a Site URL como endereço principal e autorize esse domínio com o caminho
 `/redefinir-senha` em Redirect URLs. Para uso no domínio público, publique a
 versão da aplicação que contém a rota. O fluxo não exige outra migração SQL.
 Veja o roteiro completo em `docs/RECUPERACAO-DE-SENHA.md`.
+
+## Várias fotos por produto e capa
+
+Execute o `supabase/schema.sql` atualizado para habilitar as listas de fotos. No
+painel, use **Fotos do produto** ou **Aparência e loja → Fotos da capa**, selecione
+até seis fotos, escolha a ordem/principal e salve. Fotos antigas são preservadas.
+
+A capa apresenta as fotos com troca suave e pausa; produtos exibem uma galeria
+sob demanda. URLs e cache continuam compartilhados com o carrinho. Preferências
+de menos movimento e economia de dados interrompem a troca automática. Veja
+`docs/GALERIAS-E-ACESSIBILIDADE.md` para uso, SQL, consumo e melhorias de IHC.

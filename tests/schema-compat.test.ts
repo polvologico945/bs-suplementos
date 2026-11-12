@@ -33,6 +33,34 @@ const LEGACY_BRANDS = `create table public.brands (
 );`;
 
 describe("compatibilidade SQL com constraints ausentes", () => {
+  it("acrescenta galerias sem regravar foto ou promoção legada pendente de revisão", async () => {
+    await withLegacyDatabase(async (db, migration) => {
+      await db.exec(
+        "insert into public.products(name,image_url,price,promotional_price) values ('Foto preservada','foto-original.jpg',100,120);",
+      );
+      const before = (
+        await db.query(
+          "select id,image_url,updated_at from public.products where name='Foto preservada'",
+        )
+      ).rows;
+      await db.exec(migration);
+      await db.exec(migration);
+      expect(
+        (
+          await db.query(
+            "select id,image_url,updated_at from public.products where name='Foto preservada'",
+          )
+        ).rows,
+      ).toEqual(before);
+      expect(
+        (
+          await db.query(
+            "select image_urls from public.products where name='Foto preservada'",
+          )
+        ).rows,
+      ).toEqual([{ image_urls: [] }]);
+    });
+  });
   it("atualiza marcas sem UNIQUE(slug), cria o índice e reexecuta sem duplicar produtos ou marcas", async () => {
     await withLegacyDatabase(async (db, migration) => {
       await db.exec(LEGACY_BRANDS);

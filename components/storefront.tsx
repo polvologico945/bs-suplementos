@@ -9,13 +9,16 @@ import {
   cartEntries,
   sameCart,
 } from "@/lib/cart";
-import { mediaUrl } from "@/lib/media";
+import dynamic from "next/dynamic";
+import { galleryImages } from "@/lib/images/gallery";
+import { HeroGallery } from "@/components/hero-gallery";
 import { Modal } from "@/components/modal";
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronRight,
   Instagram,
+  Images,
   MapPin,
   Minus,
   Plus,
@@ -37,6 +40,11 @@ const money = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     value,
   );
+const ProductGallery = dynamic(() =>
+  import("@/components/product-gallery").then(
+    (module) => module.ProductGallery,
+  ),
+);
 
 export default function Storefront() {
   const [settings, setSettings] = useState<StoreSettings | null>(null);
@@ -57,6 +65,7 @@ export default function Storefront() {
   const [demo, setDemo] = useState(false);
   const [flavorProduct, setFlavorProduct] = useState<Product | null>(null);
   const [selectedFlavor, setSelectedFlavor] = useState("");
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     if (recoveryTarget(new URL(window.location.href))) return;
@@ -214,6 +223,11 @@ export default function Storefront() {
       </div>
     );
 
+  const heroImages = galleryImages(
+    settings.hero_image_url || "/brand/card-front.jpg",
+    settings.hero_image_urls,
+  );
+
   return (
     <main
       style={
@@ -223,6 +237,9 @@ export default function Storefront() {
         } as React.CSSProperties
       }
     >
+      <a className="skip-link" href="#produtos">
+        Pular para os produtos
+      </a>
       <header className="topbar">
         <a className="brand" href="#inicio">
           <CatalogImage
@@ -245,13 +262,7 @@ export default function Storefront() {
         </button>
       </header>
 
-      <section
-        id="inicio"
-        className="hero"
-        style={{
-          backgroundImage: `linear-gradient(90deg, rgba(7,12,9,.96), rgba(7,12,9,.76), rgba(7,12,9,.18)), url(${mediaUrl(settings.hero_image_url || "/brand/card-front.jpg")})`,
-        }}
-      >
+      <HeroGallery key={JSON.stringify(heroImages)} images={heroImages}>
         <div className="hero-content">
           <span className="eyebrow">
             SUPLEMENTAÇÃO • PERFORMANCE • BEM-ESTAR
@@ -280,7 +291,7 @@ export default function Storefront() {
             </span>
           </div>
         </div>
-      </section>
+      </HeroGallery>
 
       {demo && (
         <div className="demo-banner">
@@ -289,11 +300,16 @@ export default function Storefront() {
         </div>
       )}
 
-      <section id="produtos" className="catalog-section">
+      <section
+        id="produtos"
+        className="catalog-section"
+        tabIndex={-1}
+        aria-labelledby="catalog-title"
+      >
         <div className="section-heading">
           <div>
             <span className="eyebrow dark">NOSSO CATÁLOGO</span>
-            <h2>Encontre o que combina com seu treino</h2>
+            <h2 id="catalog-title">Encontre o que combina com seu treino</h2>
           </div>
           <p>
             Selecione os produtos, monte o carrinho e finalize diretamente com a
@@ -316,9 +332,14 @@ export default function Storefront() {
             <div className="filter-group">
               <span className="filter-label">Categoria</span>
 
-              <div className="category-pills">
+              <div
+                className="category-pills"
+                role="group"
+                aria-label="Filtrar por categoria"
+              >
                 <button
                   className={selectedCategory === "all" ? "active" : ""}
+                  aria-pressed={selectedCategory === "all"}
                   onClick={() => {
                     setSelectedCategory("all");
                     setSelectedProductType("all");
@@ -331,6 +352,7 @@ export default function Storefront() {
                   <button
                     key={c.id}
                     className={selectedCategory === c.id ? "active" : ""}
+                    aria-pressed={selectedCategory === c.id}
                     onClick={() => {
                       setSelectedCategory(c.id);
                       setSelectedProductType("all");
@@ -346,9 +368,14 @@ export default function Storefront() {
               <div className="filter-group">
                 <span className="filter-label">Tipo de produto</span>
 
-                <div className="category-pills">
+                <div
+                  className="category-pills"
+                  role="group"
+                  aria-label="Filtrar por tipo de produto"
+                >
                   <button
                     className={selectedProductType === "all" ? "active" : ""}
+                    aria-pressed={selectedProductType === "all"}
                     onClick={() => setSelectedProductType("all")}
                   >
                     Todos
@@ -359,6 +386,7 @@ export default function Storefront() {
                     .map((type) => (
                       <button
                         key={type.id}
+                        aria-pressed={selectedProductType === type.id}
                         className={
                           selectedProductType === type.id ? "active" : ""
                         }
@@ -373,62 +401,100 @@ export default function Storefront() {
           </div>
         </div>
 
+        <p
+          className="catalog-result-count"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {filtered.length}{" "}
+          {filtered.length === 1
+            ? "produto encontrado"
+            : "produtos encontrados"}
+        </p>
         <div className="product-grid">
-          {filtered.map((product, index) => (
-            <article className="product-card" key={product.id}>
-              <div className="product-image">
-                <CatalogImage
-                  src={product.image_url || settings.logo_url}
-                  alt={product.name}
-                  width={640}
-                  height={640}
-                  loading={index < 2 ? "eager" : "lazy"}
-                  fetchPriority={index === 0 ? "high" : "auto"}
-                />
-                {product.featured && <span className="badge">Destaque</span>}
-                {product.stock_status === "unavailable" && (
-                  <span className="stock unavailable">Indisponível</span>
-                )}
-              </div>
-
-              <div className="product-body">
-                <span className="brand-name">
-                  {product.brand || "BS Suplementos"}
-                </span>
-                <h3>{product.name}</h3>
-                <p>{product.description}</p>
-                <div className="price-row">
-                  <div>
-                    {product.promotional_price !== null ? (
-                      <>
-                        <small>
-                          {product.price !== null ? money(product.price) : ""}
-                        </small>
-                        <strong>{money(product.promotional_price)}</strong>
-                      </>
-                    ) : product.price !== null ? (
-                      <strong>{money(product.price)}</strong>
-                    ) : (
-                      <strong className="consult">Consulte o valor</strong>
-                    )}
-                  </div>
-                  <button
-                    disabled={product.stock_status === "unavailable"}
-                    onClick={() => {
-                      if (product.flavors?.length) {
-                        setFlavorProduct(product);
-                        setSelectedFlavor("");
-                      } else {
-                        addToCart(product);
-                      }
-                    }}
-                  >
-                    <Plus size={18} /> Adicionar
-                  </button>
+          {filtered.map((product, index) => {
+            const images = galleryImages(product.image_url, product.image_urls);
+            return (
+              <article className="product-card" key={product.id}>
+                <div className="product-image">
+                  {images.length > 1 ? (
+                    <button
+                      type="button"
+                      className="product-gallery-open"
+                      aria-haspopup="dialog"
+                      aria-label={`Ver ${images.length} fotos de ${product.name}`}
+                      onClick={() => setGalleryProduct(product)}
+                    >
+                      <CatalogImage
+                        src={images[0]}
+                        alt={product.name}
+                        width={640}
+                        height={640}
+                        loading={index < 2 ? "eager" : "lazy"}
+                        fetchPriority={index === 0 ? "high" : "auto"}
+                      />
+                      <span className="product-photo-count">
+                        <Images size={15} aria-hidden="true" /> {images.length}{" "}
+                        fotos
+                      </span>
+                    </button>
+                  ) : (
+                    <CatalogImage
+                      src={images[0] || settings.logo_url}
+                      alt={product.name}
+                      width={640}
+                      height={640}
+                      loading={index < 2 ? "eager" : "lazy"}
+                      fetchPriority={index === 0 ? "high" : "auto"}
+                    />
+                  )}
+                  {product.featured && <span className="badge">Destaque</span>}
+                  {product.stock_status === "unavailable" && (
+                    <span className="stock unavailable">Indisponível</span>
+                  )}
                 </div>
-              </div>
-            </article>
-          ))}
+
+                <div className="product-body">
+                  <span className="brand-name">
+                    {product.brand || "BS Suplementos"}
+                  </span>
+                  <h3>{product.name}</h3>
+                  <p>{product.description}</p>
+                  <div className="price-row">
+                    <div>
+                      {product.promotional_price !== null ? (
+                        <>
+                          <small>
+                            {product.price !== null ? money(product.price) : ""}
+                          </small>
+                          <strong>{money(product.promotional_price)}</strong>
+                        </>
+                      ) : product.price !== null ? (
+                        <strong>{money(product.price)}</strong>
+                      ) : (
+                        <strong className="consult">Consulte o valor</strong>
+                      )}
+                    </div>
+                    <button
+                      aria-label={`Adicionar ${product.name} ao carrinho`}
+                      disabled={product.stock_status === "unavailable"}
+                      onClick={() => {
+                        if (product.flavors?.length) {
+                          setFlavorProduct(product);
+                          setSelectedFlavor("");
+                        } else {
+                          addToCart(product);
+                        }
+                      }}
+                    >
+                      <Plus size={18} /> Adicionar
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
         {!filtered.length && (
           <div className="empty-state">
@@ -485,6 +551,14 @@ export default function Storefront() {
         </a>
       </footer>
 
+      {galleryProduct && (
+        <ProductGallery
+          key={galleryProduct.id}
+          product={galleryProduct}
+          onClose={() => setGalleryProduct(null)}
+        />
+      )}
+
       {cartOpen && (
         <Modal
           className="drawer-backdrop"
@@ -529,7 +603,7 @@ export default function Storefront() {
                   >
                     <CatalogImage
                       src={
-                        item.image_url ||
+                        galleryImages(item.image_url, item.image_urls)[0] ||
                         settings.logo_url ||
                         "/brand/logo-card.jpg"
                       }
@@ -657,6 +731,7 @@ export default function Storefront() {
               {flavorProduct.flavors?.map((flavor) => (
                 <button
                   key={flavor}
+                  aria-pressed={selectedFlavor === flavor}
                   className={selectedFlavor === flavor ? "active" : ""}
                   onClick={() => setSelectedFlavor(flavor)}
                 >

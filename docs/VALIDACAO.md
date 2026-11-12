@@ -4,14 +4,14 @@ Data: **2026-11-12**. Revisão: Carla Evelyn.
 
 ## Verificações locais
 
-| Verificação                                      | Resultado                                            |
-| ------------------------------------------------ | ---------------------------------------------------- |
-| ESLint                                           | Sem erros ou avisos no código do projeto             |
-| TypeScript estrito                               | Aprovado                                             |
-| PostgreSQL/PGlite, carrinho, mídia e recuperação | 43 testes aprovados                                  |
-| Build Next.js de produção                        | Aprovado, também executado pelos testes de navegador |
-| Chromium/Playwright                              | 12 cenários aprovados                                |
-| Auditoria npm completa e de produção             | 0 vulnerabilidades conhecidas na consulta realizada  |
+| Verificação                                                | Resultado                                            |
+| ---------------------------------------------------------- | ---------------------------------------------------- |
+| ESLint                                                     | Sem erros ou avisos no código do projeto             |
+| TypeScript estrito                                         | Aprovado                                             |
+| PostgreSQL/PGlite, carrinho, mídia, galerias e recuperação | 51 testes aprovados                                  |
+| Build Next.js de produção                                  | Aprovado, também executado pelos testes de navegador |
+| Chromium/Playwright                                        | 19 cenários aprovados                                |
+| Auditoria npm completa e de produção                       | 0 vulnerabilidades conhecidas na consulta realizada  |
 
 Os testes usam Node.js 24, PostgreSQL embarcado (PGlite) e Chromium. O build de integração aponta para o servidor local `tests/mock-supabase.mjs`, sem acessar dados ou credenciais de produção. O servidor simula HTTP/Auth/Storage para exercitar a aplicação; as regras SQL são verificadas separadamente em PostgreSQL real embarcado.
 
@@ -46,6 +46,10 @@ Os anexos `media-network.json` e `uploads.json` do relatório Playwright registr
 - Recuperação por e-mail com PKCE, tokens do Dashboard e TokenHash de template personalizado.
 - Confirmação da nova senha, rejeição da senha antiga e login com a nova senha no Auth simulado.
 - Link expirado/inválido mesmo com sessão anterior, limite de envio e abertura na mesma aba.
+- Galeria de produtos sob demanda, cache compartilhado com card/carrinho e uma transferência por foto visitada.
+- Capa com pausa, navegação manual, interrupção fora da tela e preferências de movimento/dados.
+- Fotos múltiplas JPEG/HEIC, repetidas, reordenação, remoção, principal e falha parcial no lote.
+- Atalho para produtos, estados de filtros, foco contido/restaurado, gesto de toque e controles de 44 px.
 - Instalação nova do SQL e atualização do schema v1, com reexecução sem duplicar/apagar os registros existentes.
 - Leitura pública limitada a ativos, escrita negada para visitante/viewer e gerenciamento autorizado ao admin.
 - Relações categoria/tipo, promoção inválida, exclusão de tipo e exclusão de categoria preservando o produto.
@@ -115,6 +119,45 @@ comum sem recuperação, a preservação do identificador PKCE, a ausência de
 redirecionamento externo e as regras de senha. Nenhum teste enviou e-mail real ou
 alterou senha no Supabase de produção; essa confirmação depende do deploy e das
 URLs autorizadas na conta.
+
+## Galerias, cache e IHC
+
+<!-- Problema: novas fotos não podiam reintroduzir o consumo repetido de imagens
+nem criar controles sem acesso por teclado. Testes de rede usam cache real do
+navegador e os testes SQL executam os triggers. Data: 2026-11-12. @author Carla Evelyn -->
+
+Oito testes de lógica/SQL adicionais verificam listas legadas, normalização,
+ordem e limite das galerias, leitura com migração pendente preservando sabores e
+tipos, sincronização/limpeza da principal, reexecução do schema, RLS e manutenção
+de foto/timestamp de um produto legado com promoção pendente de revisão.
+
+Sete cenários de navegador adicionais cobrem a galeria de produto, a capa,
+preferências de movimento/dados, navegação por teclado, viewport móvel/gesto,
+upload múltiplo JPEG/HEIC, fotos repetidas e falha parcial. O cenário de rede
+usa URLs distintas para três fotos e confirma **uma transferência HTTP por foto
+visitada**, inclusive depois de reabrir a galeria e abrir o carrinho. A terceira
+foto não é solicitada antes da seleção. Não há interceptação `page.route`,
+que desabilitaria o cache. Os resultados ficam em `gallery-network.json`.
+
+A capa só monta uma foto inicialmente, avança quando permitido e aguarda a
+próxima foto carregar. A pausa e a interrupção fora da tela são verificadas com
+o relógio do navegador controlado. Menos movimento e economia de dados mantêm
+a navegação manual. O teste de teclado verifica o atalho para produtos, filtros
+com `aria-pressed`, resultados anunciados, ciclo de Tab, Escape, retorno de foco
+e fundo com `inert`. A galeria móvel verifica botões de navegação de pelo menos
+44 × 44 px e ausência de estouro horizontal.
+
+O lote JPEG/HEIC com uma foto repetida gerou dois uploads WebP, cada um de até
+350.000 bytes. A ordem, a remoção e a principal foram conferidas no payload salvo.
+Um arquivo inválido não impediu o envio e o salvamento das demais fotos da capa.
+As capturas `gallery-mobile.png`, `hero-gallery-mobile.png` e
+`gallery-admin-mobile.png` registram as interfaces.
+
+Os testes continuam usando backend local simulado; não medem o CDN da Vercel ou
+o envio/armazenamento do Supabase real. A avaliação cobre melhorias específicas
+de acessibilidade em Chromium, sem certificação integral WCAG ou teste físico
+com Safari/iPhone/leitores de tela. Orientações de uso e migração estão em
+`GALERIAS-E-ACESSIBILIDADE.md`.
 
 ## Regressão do HTTP 503 local
 

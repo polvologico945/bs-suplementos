@@ -11,6 +11,7 @@ let responses: Record<
   { data?: unknown; status?: number; code?: string }
 >;
 let legacyColumns: boolean;
+let galleryColumnsMissing: boolean;
 type MockFetch = (
   input: string | URL | Request,
   init?: RequestInit,
@@ -22,6 +23,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   legacyColumns = false;
+  galleryColumnsMissing = false;
   responses = {
     store_settings: { data: demoSettings },
     categories: { data: demoCategories },
@@ -39,6 +41,16 @@ beforeEach(() => {
     );
     const resource = url.pathname.split("/").at(-1)!;
     const value = responses[resource];
+    if (
+      galleryColumnsMissing &&
+      resource === "products" &&
+      url.searchParams.get("select")?.includes("image_urls")
+    ) {
+      return Response.json(
+        { code: "42703", message: "column products.image_urls does not exist" },
+        { status: 400 },
+      );
+    }
     if (
       legacyColumns &&
       resource === "products" &&
@@ -65,6 +77,29 @@ afterEach(() => {
 });
 
 describe("consultas e diagnóstico do catálogo", () => {
+  it("uma migração de galeria pendente preserva sabores, tipos, marcas e foto principal", async () => {
+    galleryColumnsMissing = true;
+    responses.products = {
+      data: [
+        {
+          ...demoProducts[0],
+          image_urls: undefined,
+          image_url: "/brand/antiga.jpg",
+          flavors: ["Chocolate"],
+          product_type_id: "tipo-real",
+        },
+      ],
+    };
+    const data = await readPublicCatalog();
+    expect(data.products[0]).toMatchObject({
+      image_url: "/brand/antiga.jpg",
+      image_urls: ["/brand/antiga.jpg"],
+      flavors: ["Chocolate"],
+      product_type_id: "tipo-real",
+    });
+    expect(data.diagnostics).toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(6);
+  });
   it("mantém o cache público e cinco consultas quando o schema está atualizado", async () => {
     const response = await GET(new Request("http://localhost/api/catalog"));
     expect(response.status).toBe(200);

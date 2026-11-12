@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { ImagePlus } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { IMAGE_ACCEPT, prepareImage } from "@/lib/images/prepare";
+import { IMAGE_ACCEPT } from "@/lib/images/prepare";
+import { uploadCatalogImage } from "@/lib/images/upload";
 import { CatalogImage } from "@/components/catalog-image";
 
 export function ImageUpload({
@@ -35,35 +35,13 @@ export function ImageUpload({
             onBusy(true);
             setStatus("Otimizando a foto…");
             try {
-              const db = createClient();
-              if (!db)
-                throw new Error("Configure o Supabase para enviar imagens.");
-              const { blob, path, originalSize } = await prepareImage(file);
-              setStatus("Enviando a foto otimizada…");
-              const { error } = await db.storage
-                .from("catalog")
-                .upload(path, blob, {
-                  upsert: false,
-                  contentType: "image/webp",
-                  cacheControl: "31536000",
-                });
-              // O nome é o hash: um objeto já existente tem exatamente o mesmo conteúdo.
-              if (
-                error &&
-                !["409", "400"].includes(
-                  String((error as { statusCode?: string }).statusCode),
-                )
-              )
-                throw error;
-              if (error) {
-                const existing = await db.storage.from("catalog").info(path);
-                if (existing.error) throw error;
-              }
-              onChange(
-                db.storage.from("catalog").getPublicUrl(path).data.publicUrl,
+              const { url, bytes, originalSize } = await uploadCatalogImage(
+                file,
+                value ? [value] : [],
               );
+              onChange(url);
               setStatus(
-                `Foto pronta: ${Math.ceil(blob.size / 1024)} KB (redução de ${Math.max(0, Math.round((1 - blob.size / originalSize) * 100))}%). Salve para publicar.`,
+                `Foto pronta: ${Math.ceil(bytes / 1024)} KB (redução de ${Math.max(0, Math.round((1 - bytes / originalSize) * 100))}%). Salve para publicar.`,
               );
             } catch (error) {
               setStatus(

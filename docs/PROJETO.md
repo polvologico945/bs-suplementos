@@ -38,6 +38,10 @@ A aplicação usa Next.js 16, React 19 e TypeScript estrito. `sharp` comprime im
 | `components/catalog-image.tsx`                               | Imagem com URL canônica, lazy loading e fallback                    |
 | `components/admin/product-editor.tsx`, `taxonomy-editor.tsx` | Formulários isolados de produto e organização                       |
 | `components/admin/image-upload.tsx`                          | Upload, progresso, erros e prévia                                   |
+| `components/hero-gallery.tsx`, `product-gallery.tsx`         | Apresentação da capa e galeria de produtos sob demanda              |
+| `components/admin/image-gallery-upload.tsx`                  | Fotos múltiplas, ordem, principal e remoção                         |
+| `lib/images/gallery.ts`, `upload.ts`                         | Normalização compatível e persistência compartilhada de fotos       |
+| `hooks/use-media-preferences.ts`                             | Preferências de movimento e economia de dados                       |
 | `components/modal.tsx`                                       | Diálogo, foco, Escape e bloqueio de rolagem                         |
 | `hooks/use-cart.ts`                                          | Estado e persistência mínima do carrinho                            |
 | `lib/cart.ts`                                                | Validação, migração do carrinho e reconciliação                     |
@@ -68,6 +72,7 @@ erDiagram
     text whatsapp
     text logo_url
     text hero_image_url
+    text_array hero_image_urls
   }
   AUTH_USERS {
     uuid id PK
@@ -107,6 +112,7 @@ erDiagram
     numeric price
     numeric promotional_price
     text image_url
+    text_array image_urls
     text_array flavors
     boolean active
     boolean featured
@@ -183,6 +189,24 @@ SWR permite servir uma cópia enquanto o cache é revalidado em segundo plano. T
 Limites de leitura legada: 20 MB por objeto e 40 megapixels no processamento sharp. Fotos acima desses limites precisam ser reenviadas pelo painel. Objetos antigos em hosts externos ao Supabase configurado recebem fallback: devem ser importados para o bucket. Troque uma foto enviando outra, com novo hash; nunca sobrescreva um objeto com cache immutable.
 
 Não há exclusão automática de arquivos antigos ou cache de todos os produtos por service worker. Essa decisão evita apagar imagens compartilhadas ou armazenar o catálogo inteiro no celular sem necessidade.
+
+### Galerias e acessibilidade
+
+Cada produto pode ter até seis fotos em `products.image_urls`; a capa usa
+`store_settings.hero_image_urls`. Os campos únicos anteriores continuam como
+principal e fallback para registros legados. Triggers normalizam ordem/duplicatas,
+limitam a quantidade e sincronizam a principal. A migração é aditiva e não
+regrava todos os produtos antigos. RLS e relações categoria/tipo/marca permanecem.
+
+O painel oferece seleção múltipla, reordenação, principal e remoção. O upload
+sequencial preserva os WebP pequenos e hashes. A galeria de produto carrega
+apenas a foto escolhida. A capa apresenta fotos progressivamente, espera a próxima
+carregar e pausa por interação, visibilidade ou preferências do navegador.
+
+Foram acrescentados atalho para produtos, estados de filtros e resultados
+anunciados, nomes nos controles e isolamento do fundo dos diálogos com `inert`.
+Uso, relações SQL, consumo e limites de acessibilidade estão documentados em
+`GALERIAS-E-ACESSIBILIDADE.md`.
 
 ## 7. Catálogo, carrinho e WhatsApp
 

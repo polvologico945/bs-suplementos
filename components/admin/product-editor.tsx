@@ -3,6 +3,8 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { Minus, Plus, Save, X } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { ImageUpload } from "./image-upload";
+import { ImageGalleryUpload } from "./image-gallery-upload";
+import { galleryImages } from "@/lib/images/gallery";
 import type {
   Brand,
   Category,
@@ -22,6 +24,7 @@ export function ProductEditor({
   brands,
   uploadCount,
   saving,
+  galleriesReady,
   onUploadBusy,
   onSubmit,
 }: {
@@ -32,6 +35,7 @@ export function ProductEditor({
   brands: Brand[];
   uploadCount: number;
   saving: boolean;
+  galleriesReady: boolean;
   onUploadBusy: (busy: boolean) => void;
   onSubmit: (event: FormEvent) => void;
 }) {
@@ -258,6 +262,7 @@ export function ProductEditor({
                 (flavor: string, index: number) => (
                   <div className="flavor-row" key={index}>
                     <input
+                      aria-label={`Sabor ${index + 1}`}
                       value={flavor}
                       placeholder={`Sabor ${index + 1}`}
                       onChange={(e) => {
@@ -300,16 +305,36 @@ export function ProductEditor({
             </div>
           </div>
         </div>
-        <ImageUpload
-          label="Foto do produto"
-          value={productForm.image_url}
-          onBusy={onUploadBusy}
-          onChange={(url) =>
-            setProductForm((current) =>
-              current ? { ...current, image_url: url } : current,
-            )
-          }
-        />
+        {galleriesReady ? (
+          <ImageGalleryUpload
+            label="Fotos do produto"
+            value={galleryImages(productForm.image_url, productForm.image_urls)}
+            disabled={saving}
+            onBusy={onUploadBusy}
+            onChange={(images) =>
+              setProductForm((current) =>
+                current
+                  ? {
+                      ...current,
+                      image_urls: images,
+                      image_url: images[0] || null,
+                    }
+                  : current,
+              )
+            }
+          />
+        ) : (
+          <ImageUpload
+            label="Foto do produto"
+            value={productForm.image_url}
+            onBusy={onUploadBusy}
+            onChange={(url) =>
+              setProductForm((current) =>
+                current ? { ...current, image_url: url } : current,
+              )
+            }
+          />
+        )}
         <button
           className="admin-primary save"
           disabled={uploadCount > 0 || saving}

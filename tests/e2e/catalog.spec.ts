@@ -5,7 +5,12 @@ test.beforeEach(async ({ request }) => {
   await request.get(`${mock}/__reset`);
 });
 async function addProduct(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Adicionar Whey Protein ao carrinho",
+      exact: true,
+    })
+    .click();
   await page.getByRole("button", { name: "Chocolate", exact: true }).click();
   await page.getByRole("button", { name: "Adicionar ao carrinho" }).click();
 }

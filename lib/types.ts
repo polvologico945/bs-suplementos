@@ -29,6 +29,7 @@ export type Product = {
   price: number | null;
   promotional_price: number | null;
   image_url: string | null;
+  image_urls?: string[];
   flavors: string[];
   active: boolean;
   featured: boolean;
@@ -45,6 +46,7 @@ export type StoreSettings = {
   address: string | null;
   logo_url: string | null;
   hero_image_url: string | null;
+  hero_image_urls?: string[];
   primary_color: string;
   accent_color: string;
 };

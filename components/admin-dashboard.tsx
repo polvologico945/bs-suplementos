@@ -16,6 +16,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { CatalogImage } from "@/components/catalog-image";
 import { ImageUpload } from "@/components/admin/image-upload";
+import { ImageGalleryUpload } from "@/components/admin/image-gallery-upload";
+import { galleryImages } from "@/lib/images/gallery";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { TaxonomyEditor } from "@/components/admin/taxonomy-editor";
 import type {
@@ -47,6 +49,7 @@ const blankProduct: Omit<Product, "id"> = {
   price: null,
   promotional_price: null,
   image_url: null,
+  image_urls: [],
   flavors: [],
   active: true,
   featured: false,
@@ -110,6 +113,7 @@ export default function AdminDashboard() {
   const [ready, setReady] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const galleriesReady = Array.isArray(settings?.hero_image_urls);
 
   useEffect(() => {
     let active = true;
@@ -216,9 +220,15 @@ export default function AdminDashboard() {
       ],
 
       image_url:
-        typeof productForm.image_url === "string"
-          ? productForm.image_url
-          : null,
+        galleryImages(productForm.image_url, productForm.image_urls)[0] || null,
+      ...(galleriesReady
+        ? {
+            image_urls: galleryImages(
+              productForm.image_url,
+              productForm.image_urls,
+            ),
+          }
+        : {}),
       active: Boolean(productForm.active),
       featured: Boolean(productForm.featured),
       stock_status: productForm.stock_status,
@@ -406,7 +416,17 @@ export default function AdminDashboard() {
       }),
 
       logo_url: settings.logo_url,
-      hero_image_url: settings.hero_image_url,
+      hero_image_url:
+        galleryImages(settings.hero_image_url, settings.hero_image_urls)[0] ||
+        null,
+      ...(galleriesReady
+        ? {
+            hero_image_urls: galleryImages(
+              settings.hero_image_url,
+              settings.hero_image_urls,
+            ),
+          }
+        : {}),
 
       primary_color: sanitizeColor(settings.primary_color, "#16a34a"),
 
@@ -508,6 +528,8 @@ export default function AdminDashboard() {
         <nav>
           <button
             className={tab === "products" ? "active" : ""}
+            aria-current={tab === "products" ? "page" : undefined}
+            disabled={saving || uploadCount > 0}
             onClick={() => setTab("products")}
           >
             <Package /> Produtos
@@ -515,6 +537,8 @@ export default function AdminDashboard() {
 
           <button
             className={tab === "categories" ? "active" : ""}
+            aria-current={tab === "categories" ? "page" : undefined}
+            disabled={saving || uploadCount > 0}
             onClick={() => setTab("categories")}
           >
             <Boxes /> Categorias
@@ -522,6 +546,8 @@ export default function AdminDashboard() {
 
           <button
             className={tab === "product-types" ? "active" : ""}
+            aria-current={tab === "product-types" ? "page" : undefined}
+            disabled={saving || uploadCount > 0}
             onClick={() => setTab("product-types")}
           >
             <Boxes /> Tipos de produto
@@ -529,6 +555,8 @@ export default function AdminDashboard() {
 
           <button
             className={tab === "brands" ? "active" : ""}
+            aria-current={tab === "brands" ? "page" : undefined}
+            disabled={saving || uploadCount > 0}
             onClick={() => setTab("brands")}
           >
             <Boxes /> Marcas
@@ -536,6 +564,8 @@ export default function AdminDashboard() {
 
           <button
             className={tab === "settings" ? "active" : ""}
+            aria-current={tab === "settings" ? "page" : undefined}
+            disabled={saving || uploadCount > 0}
             onClick={() => setTab("settings")}
           >
             <Settings /> Aparência e loja
@@ -659,6 +689,13 @@ export default function AdminDashboard() {
             <X size={16} />
           </div>
         )}
+        {!galleriesReady && (
+          <p role="status" className="cart-notice">
+            Para habilitar várias fotos por produto e capa, execute o arquivo
+            supabase/schema.sql atualizado no Supabase. As fotos atuais
+            continuam disponíveis.
+          </p>
+        )}
 
         {tab === "products" && (
           <>
@@ -714,11 +751,19 @@ export default function AdminDashboard() {
                       </td>
 
                       <td className="actions">
-                        <button onClick={() => setProductForm({ ...p })}>
+                        <button
+                          aria-label={`Editar ${p.name}`}
+                          disabled={saving || uploadCount > 0}
+                          onClick={() => setProductForm({ ...p })}
+                        >
                           <Pencil />
                         </button>
 
-                        <button onClick={() => remove("products", p.id)}>
+                        <button
+                          aria-label={`Excluir ${p.name}`}
+                          disabled={saving || uploadCount > 0}
+                          onClick={() => remove("products", p.id)}
+                        >
                           <Trash2 />
                         </button>
                       </td>
@@ -867,16 +912,39 @@ export default function AdminDashboard() {
                     )
                   }
                 />
-                <ImageUpload
-                  label="Imagem de capa"
-                  value={settings.hero_image_url}
-                  onBusy={onUploadBusy}
-                  onChange={(url) =>
-                    setSettings((current) =>
-                      current ? { ...current, hero_image_url: url } : current,
-                    )
-                  }
-                />
+                {galleriesReady ? (
+                  <ImageGalleryUpload
+                    label="Fotos da capa"
+                    value={galleryImages(
+                      settings.hero_image_url,
+                      settings.hero_image_urls,
+                    )}
+                    disabled={saving}
+                    onBusy={onUploadBusy}
+                    onChange={(images) =>
+                      setSettings((current) =>
+                        current
+                          ? {
+                              ...current,
+                              hero_image_urls: images,
+                              hero_image_url: images[0] || null,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                ) : (
+                  <ImageUpload
+                    label="Imagem de capa"
+                    value={settings.hero_image_url}
+                    onBusy={onUploadBusy}
+                    onChange={(url) =>
+                      setSettings((current) =>
+                        current ? { ...current, hero_image_url: url } : current,
+                      )
+                    }
+                  />
+                )}
               </div>
             </div>
             <div className="form-section">
@@ -964,6 +1032,7 @@ export default function AdminDashboard() {
           brands={brands}
           uploadCount={uploadCount}
           saving={saving}
+          galleriesReady={galleriesReady}
           onUploadBusy={onUploadBusy}
           onSubmit={(event) => void submit(event, saveProduct)}
         />

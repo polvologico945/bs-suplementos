@@ -7,10 +7,12 @@ import {
   type CatalogDiagnostic,
 } from "./catalog-errors";
 import type { Catalog, Product } from "./types";
+import { galleryImages } from "./images/gallery";
 
 const TIMEOUT_MS = 20_000;
 const PRODUCT_FIELDS =
   "id,category_id,product_type_id,brand_id,name,brand,description,price,promotional_price,image_url,flavors,active,featured,stock_status,sort_order";
+const GALLERY_PRODUCT_FIELDS = `${PRODUCT_FIELDS},image_urls`;
 const LEGACY_PRODUCT_FIELDS =
   "id,category_id,name,brand,description,price,promotional_price,image_url,active,featured,stock_status,sort_order";
 
@@ -110,7 +112,7 @@ export async function readPublicCatalog(): Promise<
       .order("name"),
     db
       .from("products")
-      .select(PRODUCT_FIELDS)
+      .select(GALLERY_PRODUCT_FIELDS)
       .eq("active", true)
       .order("sort_order")
       .order("name"),
@@ -134,6 +136,19 @@ export async function readPublicCatalog(): Promise<
    * Data: 2026-11-12. @author Carla Evelyn */
   if (p.error && ["42703", "PGRST204"].includes(p.error.code)) {
     diagnostics.push(queryDiagnostic("products", p.error, p.status));
+    // Uma migração só de galeria pendente não deve apagar sabores/marcas/tipos
+    // da resposta. O catálogo antigo continua navegável até aplicar o SQL.
+    // Data: 2026-11-12. @author Carla Evelyn
+    if (p.error.message.includes("image_urls")) {
+      p = await db
+        .from("products")
+        .select(PRODUCT_FIELDS)
+        .eq("active", true)
+        .order("sort_order")
+        .order("name");
+    }
+  }
+  if (p.error && ["42703", "PGRST204"].includes(p.error.code)) {
     p = await db
       .from("products")
       .select(LEGACY_PRODUCT_FIELDS)
@@ -169,13 +184,22 @@ export async function readPublicCatalog(): Promise<
     (b.data || []).map((brand) => [brand.id, brand.name]),
   );
   return {
-    settings: s.data!,
+    settings: {
+      ...s.data!,
+      hero_image_urls: galleryImages(
+        s.data!.hero_image_url,
+        s.data!.hero_image_urls,
+      ),
+    },
     categories: c.data || [],
     productTypes: t.data || [],
     demo: false,
     diagnostics,
     products: (p.data || []).map((product): Product => ({
       ...product,
+      image_urls: galleryImages(product.image_url, product.image_urls),
+      image_url:
+        galleryImages(product.image_url, product.image_urls)[0] || null,
       brand: brandNames.get(product.brand_id) ?? product.brand ?? null,
       brand_id: product.brand_id ?? null,
       product_type_id: product.product_type_id ?? null,

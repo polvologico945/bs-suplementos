@@ -97,8 +97,82 @@ create table if not exists public.product_types (
 alter table public.products add column if not exists brand_id uuid;
 alter table public.products add column if not exists product_type_id uuid;
 alter table public.products add column if not exists flavors text[] not null default '{}';
+alter table public.products add column if not exists image_urls text[] not null default '{}';
+alter table public.store_settings add column if not exists hero_image_urls text[] not null default '{}';
 alter table public.brands add column if not exists updated_at timestamptz not null default now();
 alter table public.product_types add column if not exists updated_at timestamptz not null default now();
+
+-- Problema: produto e capa guardavam apenas uma foto. Arrays ordenados evitam
+-- novas consultas/tabelas para uma galeria pequena. A primeira foto continua nos
+-- campos antigos, preservando carrinho, integrações e as fotos já cadastradas.
+-- Normaliza vazios/duplicatas sem apagar objetos do Storage, que podem ser usados
+-- por outros produtos. Migração aditiva e reexecutável na mesma transação.
+-- Data: 2026-11-12. @author Carla Evelyn
+create or replace function public.catalog_gallery_images(images text[], single_image text default null)
+returns text[] language sql immutable set search_path = ''
+as $$
+  select coalesce(array_agg(photo order by position), '{}'::text[])
+  from (
+    select btrim(value) as photo, min(ordinal) as position
+    from unnest(case when cardinality(images) > 0 then images else array[single_image] end)
+      with ordinality as photos(value, ordinal)
+    where nullif(btrim(value), '') is not null
+    group by btrim(value)
+  ) as distinct_photos;
+$$;
+
+create or replace function public.catalog_product_gallery()
+returns trigger language plpgsql set search_path = ''
+as $$ begin
+  if tg_op = 'INSERT' then
+    new.image_urls = public.catalog_gallery_images(new.image_urls, new.image_url);
+  elsif new.image_urls is distinct from old.image_urls then
+    new.image_urls = public.catalog_gallery_images(new.image_urls);
+  elsif new.image_url is distinct from old.image_url then
+    -- Escritas de versões anteriores trocam a principal e preservam as extras.
+    new.image_urls = public.catalog_gallery_images(case when nullif(btrim(new.image_url), '') is null then '{}'::text[]
+      else array[new.image_url] || array_remove(old.image_urls, old.image_url) end);
+  else
+    new.image_urls = public.catalog_gallery_images(new.image_urls, new.image_url);
+  end if;
+  if cardinality(new.image_urls) > 6 then
+    raise exception 'Use no máximo 6 fotos por produto.';
+  end if;
+  new.image_url = new.image_urls[1];
+  return new;
+end $$;
+drop trigger if exists catalog_product_gallery on public.products;
+create trigger catalog_product_gallery before insert or update on public.products
+  for each row execute function public.catalog_product_gallery();
+
+create or replace function public.catalog_hero_gallery()
+returns trigger language plpgsql set search_path = ''
+as $$ begin
+  if tg_op = 'INSERT' then
+    new.hero_image_urls = public.catalog_gallery_images(new.hero_image_urls, new.hero_image_url);
+  elsif new.hero_image_urls is distinct from old.hero_image_urls then
+    new.hero_image_urls = public.catalog_gallery_images(new.hero_image_urls);
+  elsif new.hero_image_url is distinct from old.hero_image_url then
+    new.hero_image_urls = public.catalog_gallery_images(case when nullif(btrim(new.hero_image_url), '') is null then '{}'::text[]
+      else array[new.hero_image_url] || array_remove(old.hero_image_urls, old.hero_image_url) end);
+  else
+    new.hero_image_urls = public.catalog_gallery_images(new.hero_image_urls, new.hero_image_url);
+  end if;
+  if cardinality(new.hero_image_urls) > 6 then
+    raise exception 'Use no máximo 6 fotos na capa.';
+  end if;
+  new.hero_image_url = new.hero_image_urls[1];
+  return new;
+end $$;
+drop trigger if exists catalog_hero_gallery on public.store_settings;
+create trigger catalog_hero_gallery before insert or update on public.store_settings
+  for each row execute function public.catalog_hero_gallery();
+
+-- Não regrava todos os produtos na migração: cadastros antigos podem conter
+-- promoções pendentes de revisão e os updated_at devem ser preservados. A leitura
+-- usa a foto antiga quando o array está vazio; o próximo salvamento sincroniza.
+comment on column public.products.image_urls is 'Até 6 URLs ordenadas; primeira sincroniza image_url. 2026-11-12. @author Carla Evelyn';
+comment on column public.store_settings.hero_image_urls is 'Até 6 fotos da capa; primeira sincroniza hero_image_url. 2026-11-12. @author Carla Evelyn';
 
 -- Instala FKs também quando as colunas já foram criadas manualmente em produção.
 do $$

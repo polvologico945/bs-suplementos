@@ -71,3 +71,15 @@ A leitura pública tolera tabelas auxiliares/colunas novas ainda ausentes, usand
 somente produtos reais e sem cachear a resposta parcial. O painel completo ainda
 precisa do schema atualizado. Falhas de rede, chave, RLS ou dados essenciais são
 identificadas pelo diagnóstico; não são substituídas por dados fictícios.
+
+## Erro SQL 42P10 ao atualizar um banco existente
+
+Esse código indica que `ON CONFLICT(coluna)` foi usado sem um índice/restrição
+única compatível. A migração atual inicializa configurações e migra marcas com
+verificação explícita de existência e locks, sem exigir constraints ausentes em
+`store_settings.id` ou `brands.slug` de instalações legadas.
+
+Use o conteúdo atualizado de `supabase/schema.sql` e execute o arquivo inteiro.
+Se houver slugs de marca repetidos, os registros e vínculos são preservados e o
+SQL emite um `NOTICE`; o índice único fica pendente de revisão desses dados.
+A criação desse índice é automática quando não há duplicidades.

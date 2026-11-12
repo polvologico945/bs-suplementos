@@ -197,6 +197,25 @@ A migração substitui as políticas com os nomes conhecidos da aplicação. Pol
 
 O rollback do frontend é selecionar o deploy anterior na Vercel. As alterações do banco são aditivas e mantêm campos antigos; não remova tabelas/colunas para reverter a interface. Se for necessário reverter dados, use o backup validado. O banco legado permanece com as estruturas novas até revisão específica.
 
+### Compatibilidade com constraints legadas e erro 42P10
+
+`CREATE TABLE IF NOT EXISTS` preserva uma tabela já existente sem acrescentar as
+constraints descritas no comando. Por isso, a versão anterior podia exigir
+`ON CONFLICT(slug)` em `brands` sem que houvesse `UNIQUE(slug)`. O PostgreSQL então
+retorna 42P10, mesmo se nenhum dado estiver repetido.
+
+A inicialização de `store_settings` e a migração de marcas agora usam locks e
+`WHERE NOT EXISTS`, sem depender dessas constraints legadas. Configurações já
+existentes não são sobrescritas. Se houver mais de uma configuração com id=1, a
+migração para com uma mensagem específica para revisar os registros; não escolhe
+uma configuração arbitrária.
+
+Em `brands`, o índice único de slug é criado se estiver ausente e os dados forem
+compatíveis. Se houver slugs repetidos, a migração preserva as marcas, avisa com
+`NOTICE` e deixa o índice pendente de revisão. Produtos que já possuem `brand_id`
+mantêm seus vínculos. Para novos vínculos por nome repetido, a escolha é estável:
+primeiro uma marca ativa, depois o menor UUID. Não há exclusão ou fusão automática.
+
 ## 9. Operação e limpeza
 
 Os logs de depuração com catálogo/cliente Supabase foram removidos. O projeto não inclui rastreador de Analytics por padrão. O README e a `.env.example` refletem as variáveis realmente usadas. Não foram encontrados componentes Lovable no código analisado. Comentários de instrução/edição sem utilidade foram retirados; comentários técnicos relevantes identificam problema, data e Carla Evelyn.

@@ -54,9 +54,20 @@ create table if not exists public.store_settings (
   updated_at timestamptz not null default now()
 );
 
+-- Problema: CREATE TABLE IF NOT EXISTS não acrescenta constraints a uma tabela
+-- legada. ON CONFLICT(id) falhava com 42P10 se ela não tivesse UNIQUE/PK em id.
+-- O lock protege a inicialização contra gravações concorrentes; a existência é
+-- conferida sem depender de uma constraint ausente e sem alterar a configuração.
+-- Data: 2026-11-12. @author Carla Evelyn
+lock table public.store_settings in share row exclusive mode;
+do $$ begin
+  if (select count(*) from public.store_settings where id = 1) > 1 then
+    raise exception 'Há mais de uma configuração de loja com id=1. Revise esses registros antes de atualizar; nenhum foi excluído.';
+  end if;
+end $$;
 insert into public.store_settings (id, instagram, address, logo_url, hero_image_url)
-values (1, '@bio.suplementos', 'Avenida Sete de Setembro, 848 — Centro — Baturité/CE', '/brand/logo-card.jpg', '/brand/card-front.jpg')
-on conflict (id) do nothing;
+select 1, '@bio.suplementos', 'Avenida Sete de Setembro, 848 — Centro — Baturité/CE', '/brand/logo-card.jpg', '/brand/card-front.jpg'
+where not exists (select 1 from public.store_settings where id = 1);
 
 
 create table if not exists public.brands (
@@ -113,18 +124,48 @@ create index if not exists products_brand_idx on public.products(brand_id);
 create index if not exists products_catalog_idx on public.products(sort_order, name) where active;
 create index if not exists product_types_category_idx on public.product_types(category_id);
 
+-- Problema: marcas criadas manualmente podiam ter slug sem UNIQUE. O antigo
+-- ON CONFLICT(slug) gerava 42P10 mesmo sem haver dados duplicados. A migração usa
+-- lock e verificações explícitas; o índice único só é criado se os dados permitem.
+-- Slugs repetidos são preservados para revisão, com aviso, sem apagar marcas/FKs.
+-- Data: 2026-11-12. @author Carla Evelyn
+lock table public.brands in share row exclusive mode;
+do $$ begin
+  if not exists (
+    select 1 from pg_index i
+    join pg_attribute a on a.attrelid = i.indrelid and a.attname = 'slug'
+    where i.indrelid = 'public.brands'::regclass
+      and i.indisunique and i.indisvalid and i.indnkeyatts = 1
+      and i.indkey[0] = a.attnum and i.indpred is null and i.indexprs is null
+  ) then
+    if exists (select 1 from public.brands where slug is not null group by slug having count(*) > 1) then
+      raise notice 'Marcas com slug repetido foram preservadas. Revise-as antes de criar um índice UNIQUE em brands.slug.';
+    else
+      create unique index if not exists catalog_brands_slug_unique on public.brands(slug);
+    end if;
+  end if;
+end $$;
+
 -- Migra nomes legados sem apagar o campo de compatibilidade nem substituir IDs existentes.
 insert into public.brands(name, slug)
 select min(trim(p.brand)), 'marca-' || md5(lower(trim(p.brand)))
 from public.products p
 where nullif(trim(p.brand), '') is not null
-  and not exists (select 1 from public.brands b where lower(trim(b.name)) = lower(trim(p.brand)))
-group by lower(trim(p.brand))
-on conflict (slug) do nothing;
+  and not exists (select 1 from public.brands b where lower(trim(b.name)) = lower(trim(p.brand)) or b.slug = 'marca-' || md5(lower(trim(p.brand))))
+group by lower(trim(p.brand));
 
-update public.products p set brand_id = b.id
-from public.brands b
-where p.brand_id is null and lower(trim(p.brand)) = lower(trim(b.name));
+-- Quando há nomes duplicados, novos vínculos escolhem uma marca ativa e depois
+-- o menor UUID, de forma estável. Vínculos já existentes permanecem intactos.
+with brand_matches as (
+  select distinct on (p.id) p.id as product_id, b.id as brand_id
+  from public.products p
+  join public.brands b on lower(trim(b.name)) = lower(trim(p.brand))
+  where p.brand_id is null
+  order by p.id, b.active desc nulls last, b.id
+)
+update public.products p set brand_id = m.brand_id
+from brand_matches m
+where p.id = m.product_id;
 
 create or replace function public.is_admin()
 returns boolean language sql stable security definer set search_path = ''

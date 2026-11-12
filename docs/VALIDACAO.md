@@ -8,7 +8,7 @@ Data: **2026-11-12**. Revisão: Carla Evelyn.
 | ------------------------------------------ | ---------------------------------------------------- |
 | ESLint                                     | Sem erros ou avisos no código do projeto             |
 | TypeScript estrito                         | Aprovado                                             |
-| PostgreSQL/PGlite, carrinho e mídia        | 30 testes aprovados                                  |
+| PostgreSQL/PGlite, carrinho e mídia        | 33 testes aprovados                                  |
 | Build Next.js de produção                  | Aprovado, também executado pelos testes de navegador |
 | Chromium/Playwright                        | 5 cenários aprovados                                 |
 | Auditoria npm das dependências de produção | 0 vulnerabilidades conhecidas na consulta realizada  |
@@ -100,3 +100,14 @@ e que uma falha essencial não vira demonstração. As respostas parciais usam
 A captura de localhost, sozinha, não identifica qual desses erros ocorreu na
 máquina da usuária. O diagnóstico da rota e o resultado da execução do SQL no
 projeto usado por `.env.local` permitem confirmar a causa sem compartilhar chaves.
+
+## Regressão da migração SQL 42P10
+
+O erro original foi reproduzido em PostgreSQL/PGlite com `brands` criada sem
+`UNIQUE(slug)`. Três novos cenários aprovados verificam: criação segura do índice
+quando os dados permitem; reexecução sem duplicar marcas/produtos; preservação de
+configuração existente sem PK/UNIQUE em `store_settings.id`; e preservação de
+slugs duplicados, IDs e vínculos existentes, com novos vínculos determinísticos.
+
+A restrição de unicidade de `storage.buckets.id` continua sendo a estrutura nativa
+do Supabase. A migração não altera constraints dos schemas gerenciados de Storage.

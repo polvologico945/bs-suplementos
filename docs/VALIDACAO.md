@@ -8,7 +8,7 @@ Data: **2026-11-12**. Revisão: Carla Evelyn.
 | ------------------------------------------ | ---------------------------------------------------- |
 | ESLint                                     | Sem erros ou avisos no código do projeto             |
 | TypeScript estrito                         | Aprovado                                             |
-| PostgreSQL/PGlite, carrinho e mídia        | 19 testes aprovados                                  |
+| PostgreSQL/PGlite, carrinho e mídia        | 30 testes aprovados                                  |
 | Build Next.js de produção                  | Aprovado, também executado pelos testes de navegador |
 | Chromium/Playwright                        | 5 cenários aprovados                                 |
 | Auditoria npm das dependências de produção | 0 vulnerabilidades conhecidas na consulta realizada  |
@@ -87,3 +87,16 @@ Não houve acesso às credenciais/painéis da Vercel ou do Supabase de produçã
 7. Comparar as métricas dos provedores por 7–14 dias: egress do Supabase, transferência/invocações Vercel e consumo do otimizador de imagens.
 
 A viewport móvel foi testada em Chromium; não equivale a teste físico de Safari/iPhone. O fluxo não cria reserva de estoque ou transação de pagamento. A aplicação oferece confirmação atualizada antes do link, mas a loja ainda confirma o pedido.
+
+## Regressão do HTTP 503 local
+
+A revisão de 2026-11-12 acrescentou 11 testes de consulta e diagnóstico. Eles
+verificam conexão que demora mais de oito segundos (o limite anterior), ausência
+de marcas/tipos, leitura de colunas legadas, erro RLS, configurações incompletas,
+URL inválida, DNS, TLS e timeout. Confirmam também que chaves não aparecem no JSON
+e que uma falha essencial não vira demonstração. As respostas parciais usam
+`no-store`; o caminho saudável preserva cache e as cinco consultas sem retries.
+
+A captura de localhost, sozinha, não identifica qual desses erros ocorreu na
+máquina da usuária. O diagnóstico da rota e o resultado da execução do SQL no
+projeto usado por `.env.local` permitem confirmar a causa sem compartilhar chaves.

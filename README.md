@@ -52,3 +52,22 @@ Os testes de navegador iniciam um Supabase simulado **local**, compilam o aplica
 - [Projeto completo, arquitetura e relações SQL](docs/PROJETO.md)
 - [Comparação de hospedagem e custos](docs/HOSPEDAGEM.md)
 - [Validação, cenários e limites dos testes](docs/VALIDACAO.md)
+
+## Catálogo indisponível em localhost
+
+A configuração da Vercel não altera o `.env.local` da sua máquina. Confira se ele
+contém a URL e a Publishable key do mesmo projeto Supabase e reinicie `npm run dev`.
+Abra `http://localhost:3000/api/catalog?fresh=1`: em desenvolvimento, a resposta
+inclui `diagnostics` com recurso, código e orientação, sem chaves ou dados da loja.
+O terminal também registra essa orientação.
+
+O SQL é executado no **Supabase → projeto correto → SQL Editor → New query**:
+cole todo o conteúdo de `supabase/schema.sql` da branch e clique em **Run**. Não
+é necessário repetir por branch. Se Preview e Production usam o mesmo projeto,
+a alteração do banco vale para ambos; prefira uma cópia de teste e mantenha backup.
+Não execute a fixture histórica `tests/fixtures/schema-v1.sql`.
+
+A leitura pública tolera tabelas auxiliares/colunas novas ainda ausentes, usando
+somente produtos reais e sem cachear a resposta parcial. O painel completo ainda
+precisa do schema atualizado. Falhas de rede, chave, RLS ou dados essenciais são
+identificadas pelo diagnóstico; não são substituídas por dados fictícios.

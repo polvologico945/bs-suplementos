@@ -30,27 +30,28 @@ A aplicação usa Next.js 16, React 19 e TypeScript estrito. `sharp` comprime im
 
 ## 3. Organização do código
 
-| Caminho                                                      | Responsabilidade                                   |
-| ------------------------------------------------------------ | -------------------------------------------------- |
-| `app/page.tsx`                                               | Entrada do catálogo                                |
-| `components/storefront.tsx`                                  | Interface, busca, categorias/tipos e pedido        |
-| `components/admin-dashboard.tsx`                             | Gerenciamento e formulários tipados                |
-| `components/catalog-image.tsx`                               | Imagem com URL canônica, lazy loading e fallback   |
-| `components/admin/product-editor.tsx`, `taxonomy-editor.tsx` | Formulários isolados de produto e organização      |
-| `components/admin/image-upload.tsx`                          | Upload, progresso, erros e prévia                  |
-| `components/modal.tsx`                                       | Diálogo, foco, Escape e bloqueio de rolagem        |
-| `hooks/use-cart.ts`                                          | Estado e persistência mínima do carrinho           |
-| `lib/cart.ts`                                                | Validação, migração do carrinho e reconciliação    |
-| `lib/images/prepare.ts`                                      | Conversão, redução, remoção de EXIF e hash         |
-| `lib/media.ts`                                               | Mapeamento seguro das URLs do Storage              |
-| `lib/catalog-server.ts`                                      | Leitura pública anônima do catálogo                |
-| `lib/store.ts`                                               | Cache curto e deduplicação de consultas no cliente |
-| `lib/supabase/client.ts`                                     | Cliente Supabase do navegador                      |
-| `lib/supabase/proxy.ts`, `proxy.ts`                          | Validação de sessão/perfil apenas em `/admin`      |
-| `lib/security/sanitize.ts`                                   | Normalização de textos, números e contatos         |
-| `supabase/schema.sql`                                        | Fonte única para instalar/atualizar o banco        |
-| `tests/`                                                     | Regressões de dados, SQL e navegador               |
-| `.github/workflows/ci.yml`                                   | Verificações automatizadas                         |
+| Caminho                                                      | Responsabilidade                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `app/page.tsx`                                               | Entrada do catálogo                                                 |
+| `components/storefront.tsx`                                  | Interface, busca, categorias/tipos e pedido                         |
+| `components/admin-dashboard.tsx`                             | Gerenciamento e formulários tipados                                 |
+| `components/catalog-image.tsx`                               | Imagem com URL canônica, lazy loading e fallback                    |
+| `components/admin/product-editor.tsx`, `taxonomy-editor.tsx` | Formulários isolados de produto e organização                       |
+| `components/admin/image-upload.tsx`                          | Upload, progresso, erros e prévia                                   |
+| `components/modal.tsx`                                       | Diálogo, foco, Escape e bloqueio de rolagem                         |
+| `hooks/use-cart.ts`                                          | Estado e persistência mínima do carrinho                            |
+| `lib/cart.ts`                                                | Validação, migração do carrinho e reconciliação                     |
+| `lib/images/prepare.ts`                                      | Conversão, redução, remoção de EXIF e hash                          |
+| `lib/media.ts`                                               | Mapeamento seguro das URLs do Storage                               |
+| `lib/catalog-errors.ts`                                      | Diagnósticos de configuração, schema, RLS e conexão sem credenciais |
+| `lib/catalog-server.ts`                                      | Leitura pública anônima do catálogo                                 |
+| `lib/store.ts`                                               | Cache curto e deduplicação de consultas no cliente                  |
+| `lib/supabase/client.ts`                                     | Cliente Supabase do navegador                                       |
+| `lib/supabase/proxy.ts`, `proxy.ts`                          | Validação de sessão/perfil apenas em `/admin`                       |
+| `lib/security/sanitize.ts`                                   | Normalização de textos, números e contatos                          |
+| `supabase/schema.sql`                                        | Fonte única para instalar/atualizar o banco                         |
+| `tests/`                                                     | Regressões de dados, SQL e navegador                                |
+| `.github/workflows/ci.yml`                                   | Verificações automatizadas                                          |
 
 ## 4. Modelo de dados e relações SQL
 
@@ -172,7 +173,9 @@ Não há exclusão automática de arquivos antigos ou cache de todos os produtos
 
 ## 7. Catálogo, carrinho e WhatsApp
 
-`GET /api/catalog` faz consultas anônimas, respeitando RLS, e retorna apenas os campos usados. Não acessa cookies nem envia dados administrativos. A resposta tem cache de 60 segundos no navegador/CDN e SWR de 300 segundos. O cliente também deduplica consultas concorrentes e mantém o resultado por 60 segundos. Uma falha real retorna HTTP 503 e permite tentar novamente, sem trocar a loja por dados de demonstração.
+`GET /api/catalog` faz consultas anônimas, respeitando RLS, e retorna apenas os campos usados. Não acessa cookies nem envia dados administrativos. A resposta tem cache de 60 segundos no navegador/CDN e SWR de 300 segundos. O cliente também deduplica consultas concorrentes e mantém o resultado por 60 segundos. Falhas em configurações da loja, categorias ou produtos retornam HTTP 503, sem trocar a loja por dados de demonstração. Tipos/marcas são auxiliares: se falharem, os produtos reais continuam disponíveis, com diagnóstico operacional e resposta `no-store`. Quando apenas as colunas novas de produto estão ausentes, uma consulta adicional aos campos legados permite leitura compatível até concluir a migração; isso não habilita o painel completo sem SQL atualizado.
+
+O limite de conexão é de 20 segundos para permitir inicializações mais lentas do Supabase. Não há retries automáticos nem polling. Em desenvolvimento, `/api/catalog?fresh=1` informa `diagnostics` com recurso, código e orientação. Em produção, o navegador recebe a mensagem genérica e os diagnósticos seguros ficam nos logs do servidor. Nunca são registrados chaves, cabeçalhos, linhas de produtos ou mensagens brutas do banco. DNS/TLS/timeout são identificados separadamente de erros de schema/RLS.
 
 A chave `bs-cart` no `localStorage` guarda somente `id`, `flavor` e `quantity`. O parser tolera JSON corrompido, elimina entradas inválidas, agrupa duplicatas e limita quantidades a 99. Formatos antigos com produtos completos são migrados. Os itens exibidos são reconciliados com o catálogo: preço, marca, foto e disponibilidade atuais substituem as cópias antigas. O modo privado pode usar o carrinho em memória.
 

@@ -61,6 +61,19 @@ npm run test:e2e
 
 Se o Chromium já estiver instalado no sistema, configure `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` com seu caminho. O Playwright inicia o backend local em `127.0.0.1:54321` e o aplicativo em `127.0.0.1:3000`, compila em modo produção e encerra os servidores ao concluir.
 
+## Preview publicado
+
+A branch `fix/catalogo-imagens-e-confiabilidade` foi publicada no GitHub. A Vercel
+informou **sucesso** para o commit de implementação `da2645c`.
+
+[Preview de teste](https://bs-suplementos-3h2qwc91g-polvologico945s-projects.vercel.app)
+
+As consultas externas a `/api/health` e `/api/catalog` retornaram HTTP 302 para
+`vercel.com/sso-api`: o Preview exige login na conta Vercel autorizada. A proteção
+não foi removida. Portanto, não foi possível confirmar de fora os dados do catálogo,
+as variáveis de Preview ou o cache real do CDN. O sucesso do deploy comprova a
+publicação/build; a validação funcional com o Supabase da conta continua necessária.
+
 ## O que ainda precisa ser conferido no Preview
 
 Não houve acesso às credenciais/painéis da Vercel ou do Supabase de produção. Esta revisão não aplicou SQL, não publicou uma nova versão de produção e não mediu o CDN real. O GitHub Actions/Preview dependem da configuração da conta; a existência da branch não garante o Preview habilitado.

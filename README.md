@@ -83,3 +83,18 @@ Use o conteúdo atualizado de `supabase/schema.sql` e execute o arquivo inteiro.
 Se houver slugs de marca repetidos, os registros e vínculos são preservados e o
 SQL emite um `NOTICE`; o índice único fica pendente de revisão desses dados.
 A criação desse índice é automática quando não há duplicidades.
+
+## Atualizar a cópia local depois de um pull
+
+Pare o servidor antes de atualizar. Para a branch de teste:
+
+```bash
+git switch fix/catalogo-imagens-e-confiabilidade
+git pull --ff-only origin fix/catalogo-imagens-e-confiabilidade
+npm ci
+npm run dev
+```
+
+O `git pull` atualiza o código e o lockfile; `npm ci` instala exatamente as
+versões registradas nele. Isso evita módulos ausentes e preserva as correções de
+segurança publicadas. Consulte `docs/VALIDACAO.md` para os resultados da auditoria.

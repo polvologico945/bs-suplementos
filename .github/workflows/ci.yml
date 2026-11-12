@@ -16,6 +16,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Problema: conferir só produção deixava avisos nas ferramentas de teste/lint.
+      # A auditoria completa verifica também essas dependências a cada atualização.
+      # Data: 2026-11-12. @author Carla Evelyn
+      - run: npm audit --audit-level=moderate
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

@@ -4,14 +4,14 @@ Data: **2026-11-12**. Revisão: Carla Evelyn.
 
 ## Verificações locais
 
-| Verificação                                | Resultado                                            |
-| ------------------------------------------ | ---------------------------------------------------- |
-| ESLint                                     | Sem erros ou avisos no código do projeto             |
-| TypeScript estrito                         | Aprovado                                             |
-| PostgreSQL/PGlite, carrinho e mídia        | 33 testes aprovados                                  |
-| Build Next.js de produção                  | Aprovado, também executado pelos testes de navegador |
-| Chromium/Playwright                        | 5 cenários aprovados                                 |
-| Auditoria npm das dependências de produção | 0 vulnerabilidades conhecidas na consulta realizada  |
+| Verificação                          | Resultado                                            |
+| ------------------------------------ | ---------------------------------------------------- |
+| ESLint                               | Sem erros ou avisos no código do projeto             |
+| TypeScript estrito                   | Aprovado                                             |
+| PostgreSQL/PGlite, carrinho e mídia  | 33 testes aprovados                                  |
+| Build Next.js de produção            | Aprovado, também executado pelos testes de navegador |
+| Chromium/Playwright                  | 5 cenários aprovados                                 |
+| Auditoria npm completa e de produção | 0 vulnerabilidades conhecidas na consulta realizada  |
 
 Os testes usam Node.js 24, PostgreSQL embarcado (PGlite) e Chromium. O build de integração aponta para o servidor local `tests/mock-supabase.mjs`, sem acessar dados ou credenciais de produção. O servidor simula HTTP/Auth/Storage para exercitar a aplicação; as regras SQL são verificadas separadamente em PostgreSQL real embarcado.
 
@@ -111,3 +111,27 @@ slugs duplicados, IDs e vínculos existentes, com novos vínculos determinístic
 
 A restrição de unicidade de `storage.buckets.id` continua sendo a estrutura nativa
 do Supabase. A migração não altera constraints dos schemas gerenciados de Storage.
+
+## Atualização de segurança das ferramentas de desenvolvimento
+
+<!-- Problema: a auditoria limitada à produção não identificava avisos em
+ferramentas de lint/teste. Atualização compatível no lockfile e correção limitada
+à árvore do analisador TypeScript. Data: 2026-11-12. @author Carla Evelyn -->
+
+Na consulta completa de 2026-11-12 foram encontrados 11 avisos (7 moderados e 4
+altos), enquanto a consulta limitada à produção não encontrou vulnerabilidades.
+A quantidade pode diferir de uma consulta anterior por versões, plataforma ou
+atualização dos avisos do registro npm.
+
+Foram atualizados os pacotes afetados no `package-lock.json`, incluindo
+`brace-expansion`, `browserslist`, `js-yaml`, `zod` e a família TypeScript/ESLint.
+A versão publicada de `typescript-eslint` ainda dependia de `minimatch` afetado;
+por isso, `package.json` contém um override de `minimatch` a partir de 11.0.1,
+limitado à árvore de `@typescript-eslint/typescript-estree`. O lockfile fixa 11.0.8.
+A API CommonJS utilizada pelo analisador continua disponível nessa versão.
+Revise/remova a regra quando a dependência nativa do analisador adotar a correção.
+
+Após `npm ci`, a nova auditoria completa retornou zero vulnerabilidades
+conhecidas. O CI também passou a executar `npm audit --audit-level=moderate`.
+Novos avisos podem surgir depois desta consulta e devem ser avaliados em cada
+atualização. A versão de Next.js continua 16.4.6 e a de React continua 19.3.1.

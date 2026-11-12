@@ -1,5 +1,16 @@
 "use client";
-import Image from "next/image";
+import { CatalogImage } from "@/components/catalog-image";
+import { useCart } from "@/hooks/use-cart";
+import {
+  cartTotal,
+  MAX_QUANTITY,
+  unitPrice,
+  reconcileCart,
+  cartEntries,
+  sameCart,
+} from "@/lib/cart";
+import { mediaUrl } from "@/lib/media";
+import { Modal } from "@/components/modal";
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -15,7 +26,6 @@ import {
 } from "lucide-react";
 import { loadCatalog } from "@/lib/store";
 import type {
-  CartItem,
   Category,
   Product,
   ProductType,
@@ -35,41 +45,50 @@ export default function Storefront() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedProductType, setSelectedProductType] = useState("all");
   const [query, setQuery] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const { cart, setCart, cartNotice, setCartNotice } = useCart(
+    products,
+    Boolean(settings),
+  );
+  const [error, setError] = useState("");
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [demo, setDemo] = useState(false);
   const [flavorProduct, setFlavorProduct] = useState<Product | null>(null);
   const [selectedFlavor, setSelectedFlavor] = useState("");
-  
-  useEffect(() => {
-    loadCatalog().then((data) => {
-      setSettings(data.settings);
-      setCategories(data.categories);
-      setProductTypes(data.productTypes);
-      setProducts(data.products);
-      setDemo(data.demo);
-    });
-    const saved = localStorage.getItem("bs-cart");
-    if (saved) setCart(JSON.parse(saved));
-  }, []);
 
   useEffect(() => {
-    localStorage.setItem("bs-cart", JSON.stringify(cart));
-  }, [cart]);
+    let active = true;
+    loadCatalog()
+      .then((data) => {
+        if (!active) return;
+        setSettings(data.settings);
+        setCategories(data.categories);
+        setProductTypes(data.productTypes);
+        setProducts(data.products);
+        setDemo(data.demo);
+      })
+      .catch(() => {
+        if (active)
+          setError("Não foi possível carregar os produtos. Tente novamente.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(
     () =>
       products.filter((p) => {
         const categoryMatch =
-          selectedCategory === "all" ||
-          p.category_id === selectedCategory;
+          selectedCategory === "all" || p.category_id === selectedCategory;
 
         const productTypeMatch =
           selectedProductType === "all" ||
           p.product_type_id === selectedProductType;
 
         const text =
-          `${p.name} ${p.brand ?? ""} ${p.description ?? ""}`.toLowerCase();
+          `${p.name} ${p.brand ?? ""} ${p.description ?? ""} ${categories.find((c) => c.id === p.category_id)?.name ?? ""}`.toLowerCase();
 
         return (
           categoryMatch &&
@@ -77,35 +96,28 @@ export default function Storefront() {
           text.includes(query.toLowerCase())
         );
       }),
-    [products, selectedCategory, selectedProductType, query],
+    [products, categories, selectedCategory, selectedProductType, query],
   );
 
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const total = cart.reduce(
-    (sum, item) =>
-      sum + (item.promotional_price ?? item.price ?? 0) * item.quantity,
-    0,
-  );
+  const total = cartTotal(cart);
 
   function addToCart(product: Product, flavor?: string) {
     const selected = flavor || null;
 
     setCart((current) => {
       const existing = current.find(
-        (item) =>
-          item.id === product.id &&
-          item.flavor === selected
+        (item) => item.id === product.id && item.flavor === selected,
       );
 
       if (existing) {
         return current.map((item) =>
-          item.id === product.id &&
-          item.flavor === selected
+          item.id === product.id && item.flavor === selected
             ? {
                 ...item,
-                quantity: item.quantity + 1,
+                quantity: Math.min(MAX_QUANTITY, item.quantity + 1),
               }
-            : item
+            : item,
         );
       }
 
@@ -119,6 +131,7 @@ export default function Storefront() {
       ];
     });
 
+    setCheckoutUrl("");
     setCartOpen(true);
   }
 
@@ -132,47 +145,72 @@ export default function Storefront() {
         i.id === id && i.flavor === flavor
           ? {
               ...i,
-              quantity: Math.max(1, i.quantity + delta),
+              quantity: Math.max(1, Math.min(MAX_QUANTITY, i.quantity + delta)),
             }
           : i,
       ),
     );
   }
 
-  function checkout() {
-    if (!settings || !cart.length) return;
-    const lines = cart.map(
-      (item) =>
-        `• ${item.quantity}x ${item.name}${
-          item.brand ? ` — ${item.brand}` : ""
-        }${
-          item.flavor ? ` — Sabor: ${item.flavor}` : ""
-        }${
-          item.price
-            ? ` (${money(
-                (item.promotional_price ?? item.price) * item.quantity,
-              )})`
-            : ""
-        }`
-    );
-    const message = [
-      "Olá! Vim pelo catálogo da BS Suplementos e quero finalizar este pedido:",
-      "",
-      ...lines,
-      total > 0 ? `\nTotal estimado: ${money(total)}` : "",
-      "",
-      "Pode confirmar disponibilidade, sabores e forma de pagamento?",
-    ]
-      .filter(Boolean)
-      .join("\n");
-    window.open(
-      `https://wa.me/${settings.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
+  async function checkout() {
+    if (!settings || !cart.length || checkingOut) return;
+    setCheckingOut(true);
+    setCheckoutUrl("");
+    try {
+      const data = await loadCatalog(true);
+      const current = reconcileCart(cartEntries(cart), data.products);
+      setProducts(data.products);
+      setSettings(data.settings);
+      setCart(current);
+      if (!sameCart(cart, current)) {
+        setCartNotice(
+          "Atualizamos preços ou disponibilidade do seu carrinho. Confira os itens e finalize novamente.",
+        );
+        return;
+      }
+      const message = [
+        `Olá! Vim pelo catálogo da ${data.settings.store_name} e quero fazer este pedido:`,
+        ...current.map(
+          (item) =>
+            `• ${item.quantity}x ${item.name}${item.brand ? ` — ${item.brand}` : ""}${item.flavor ? ` — Sabor: ${item.flavor}` : ""}${unitPrice(item) !== null ? ` (${money((unitPrice(item) ?? 0) * item.quantity)})` : " — valor sob consulta"}`,
+        ),
+        `Total estimado dos itens com preço: ${money(cartTotal(current))}`,
+        "Pode confirmar disponibilidade, sabores e forma de pagamento?",
+      ].join("\n");
+      // Link explícito após a consulta: evita bloqueadores de popup em Safari/iPhone.
+      setCheckoutUrl(
+        `https://wa.me/${data.settings.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`,
+      );
+      setCartNotice(
+        "Pedido conferido. Toque em Enviar pedido para abrir o WhatsApp.",
+      );
+    } catch {
+      setCartNotice(
+        "Não conseguimos confirmar preços e estoque. Tente finalizar novamente em instantes.",
+      );
+    } finally {
+      setCheckingOut(false);
+    }
   }
 
-  if (!settings) return <div className="loading">Carregando catálogo…</div>;
+  if (error)
+    return (
+      <main className="loading">
+        <div role="alert">
+          <h1>Catálogo indisponível no momento</h1>
+          <p>{error}</p>
+          <button className="primary-button" onClick={() => location.reload()}>
+            Tentar novamente
+          </button>
+        </div>
+      </main>
+    );
+  if (!settings)
+    return (
+      <div className="loading" role="status">
+        Carregando catálogo…
+      </div>
+    );
 
   return (
     <main
@@ -185,7 +223,7 @@ export default function Storefront() {
     >
       <header className="topbar">
         <a className="brand" href="#inicio">
-          <img
+          <CatalogImage
             src={settings.logo_url || "/brand/logo-card.jpg"}
             alt="BS Suplementos"
           />
@@ -209,7 +247,7 @@ export default function Storefront() {
         id="inicio"
         className="hero"
         style={{
-          backgroundImage: `linear-gradient(90deg, rgba(7,12,9,.96), rgba(7,12,9,.76), rgba(7,12,9,.18)), url(${settings.hero_image_url || "/brand/card-front.jpg"})`,
+          backgroundImage: `linear-gradient(90deg, rgba(7,12,9,.96), rgba(7,12,9,.76), rgba(7,12,9,.18)), url(${mediaUrl(settings.hero_image_url || "/brand/card-front.jpg")})`,
         }}
       >
         <div className="hero-content">
@@ -267,12 +305,12 @@ export default function Storefront() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              aria-label="Buscar produto, marca ou categoria"
               placeholder="Buscar produto, marca ou categoria…"
             />
           </div>
-          
-          <div className="catalog-filters">
 
+          <div className="catalog-filters">
             <div className="filter-group">
               <span className="filter-label">Categoria</span>
 
@@ -330,41 +368,27 @@ export default function Storefront() {
                 </div>
               </div>
             )}
-
           </div>
-
         </div>
 
         <div className="product-grid">
           {filtered.map((product, index) => (
             <article className="product-card" key={product.id}>
-              <div className="product-image" style={{ position: "relative", width: "100%", height: "240px", overflow: "hidden" }}>
-                {product.image_url ? (
-                  <Image
-                    src={product.image_url}
-                    alt={product.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    style={{ objectFit: "cover" }}
-                    priority={index < 2}
-                    loading={index >= 2 ? "lazy" : undefined}
-                  />
-                ) : (
-                  <div className="image-placeholder" style={{ position: "relative", width: "100%", height: "100%" }}>
-                    <Image
-                      src={settings.logo_url || "/brand/logo-card.jpg"}
-                      alt=""
-                      fill
-                      style={{ objectFit: "contain", padding: "20px" }}
-                    />
-                  </div>
-                )}
+              <div className="product-image">
+                <CatalogImage
+                  src={product.image_url || settings.logo_url}
+                  alt={product.name}
+                  width={640}
+                  height={640}
+                  loading={index < 2 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                />
                 {product.featured && <span className="badge">Destaque</span>}
                 {product.stock_status === "unavailable" && (
                   <span className="stock unavailable">Indisponível</span>
                 )}
               </div>
-              
+
               <div className="product-body">
                 <span className="brand-name">
                   {product.brand || "BS Suplementos"}
@@ -373,14 +397,14 @@ export default function Storefront() {
                 <p>{product.description}</p>
                 <div className="price-row">
                   <div>
-                    {product.promotional_price ? (
+                    {product.promotional_price !== null ? (
                       <>
                         <small>
-                          {product.price ? money(product.price) : ""}
+                          {product.price !== null ? money(product.price) : ""}
                         </small>
                         <strong>{money(product.promotional_price)}</strong>
                       </>
-                    ) : product.price ? (
+                    ) : product.price !== null ? (
                       <strong>{money(product.price)}</strong>
                     ) : (
                       <strong className="consult">Consulte o valor</strong>
@@ -429,7 +453,7 @@ export default function Storefront() {
 
       <footer>
         <div className="footer-brand">
-          <img
+          <CatalogImage
             src={settings.logo_url || "/brand/logo-card.jpg"}
             alt="BS Suplementos"
           />
@@ -440,9 +464,13 @@ export default function Storefront() {
         </div>
         <div className="footer-info">
           {settings.instagram && (
-            <span>
-              <Instagram size={17} /> {settings.instagram}
-            </span>
+            <a
+              href={`https://instagram.com/${settings.instagram.replace(/^@/, "")}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Instagram size={17} /> @{settings.instagram.replace(/^@/, "")}
+            </a>
           )}
           {settings.address && (
             <span>
@@ -456,7 +484,13 @@ export default function Storefront() {
       </footer>
 
       {cartOpen && (
-        <div className="drawer-backdrop" onMouseDown={() => setCartOpen(false)}>
+        <Modal
+          className="drawer-backdrop"
+          label="Carrinho"
+          onClose={() => {
+            if (!checkingOut) setCartOpen(false);
+          }}
+        >
           <aside
             className="cart-drawer"
             onMouseDown={(e) => e.stopPropagation()}
@@ -466,7 +500,11 @@ export default function Storefront() {
                 <span>SEU PEDIDO</span>
                 <h2>Carrinho</h2>
               </div>
-              <button onClick={() => setCartOpen(false)}>
+              <button
+                aria-label="Fechar carrinho"
+                disabled={checkingOut}
+                onClick={() => setCartOpen(false)}
+              >
                 <X />
               </button>
             </div>
@@ -483,12 +521,19 @@ export default function Storefront() {
                   className="cart-item"
                   key={`${item.id}-${item.flavor ?? "sem-sabor"}`}
                 >
-                  <div className="cart-thumb" style={{ overflow: "hidden", borderRadius: "6px" }}>
-                    <Image 
-                      src={item.image_url || settings.logo_url || "/brand/logo-card.jpg"} 
-                      alt="" 
-                      width={60} 
-                      height={60} 
+                  <div
+                    className="cart-thumb"
+                    style={{ overflow: "hidden", borderRadius: "6px" }}
+                  >
+                    <CatalogImage
+                      src={
+                        item.image_url ||
+                        settings.logo_url ||
+                        "/brand/logo-card.jpg"
+                      }
+                      alt=""
+                      width={60}
+                      height={60}
                       style={{ objectFit: "cover" }}
                     />
                   </div>
@@ -496,33 +541,44 @@ export default function Storefront() {
                     <strong>{item.name}</strong>
                     <span>{item.brand}</span>
 
-                    {item.flavor && (
-                      <small>Sabor: {item.flavor}</small>
-                    )}
+                    {item.flavor && <small>Sabor: {item.flavor}</small>}
                     <div className="qty">
                       <button
-                        onClick={() => changeQty(item.id, item.flavor, -1)}
+                        aria-label={`Diminuir quantidade de ${item.name}`}
+                        disabled={checkingOut || item.quantity <= 1}
+                        onClick={() => {
+                          setCheckoutUrl("");
+                          changeQty(item.id, item.flavor, -1);
+                        }}
                       >
                         <Minus size={15} />
                       </button>
                       <b>{item.quantity}</b>
-                        <button
-                          onClick={() => changeQty(item.id, item.flavor, 1)}
-                        >
+                      <button
+                        aria-label={`Aumentar quantidade de ${item.name}`}
+                        disabled={checkingOut || item.quantity >= MAX_QUANTITY}
+                        onClick={() => {
+                          setCheckoutUrl("");
+                          changeQty(item.id, item.flavor, 1);
+                        }}
+                      >
                         <Plus size={15} />
                       </button>
                     </div>
                   </div>
                   <button
                     className="remove"
-                    onClick={() =>
+                    aria-label={`Remover ${item.name}`}
+                    disabled={checkingOut}
+                    onClick={() => (
+                      setCheckoutUrl(""),
                       setCart(
                         cart.filter(
                           (i) =>
-                            !(i.id === item.id && i.flavor === item.flavor)
-                        )
+                            !(i.id === item.id && i.flavor === item.flavor),
+                        ),
                       )
-                    }
+                    )}
                   >
                     <Trash2 size={18} />
                   </button>
@@ -530,7 +586,12 @@ export default function Storefront() {
               ))}
             </div>
             <div className="drawer-footer">
-              {total > 0 && (
+              {cartNotice && (
+                <p role="status" className="cart-notice">
+                  {cartNotice}
+                </p>
+              )}
+              {cart.some((item) => unitPrice(item) !== null) && (
                 <div className="total">
                   <span>Total estimado</span>
                   <strong>{money(total)}</strong>
@@ -538,23 +599,37 @@ export default function Storefront() {
               )}
               <button
                 className="checkout"
-                disabled={!cart.length}
+                disabled={!cart.length || checkingOut}
                 onClick={checkout}
               >
-                Comprar pelo WhatsApp <ChevronRight size={19} />
+                {checkingOut
+                  ? "Conferindo preços e estoque…"
+                  : "Finalizar pedido"}{" "}
+                <ChevronRight size={19} />
               </button>
+              {checkoutUrl && (
+                <a
+                  className="checkout checkout-link"
+                  href={checkoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Enviar pedido pelo WhatsApp <ChevronRight size={19} />
+                </a>
+              )}
               <small>
                 O pedido será enviado à loja para confirmação de estoque e
                 pagamento.
               </small>
             </div>
           </aside>
-        </div>
+        </Modal>
       )}
       {flavorProduct && (
-        <div
+        <Modal
           className="flavor-modal-backdrop"
-          onMouseDown={() => setFlavorProduct(null)}
+          label="Escolher sabor"
+          onClose={() => setFlavorProduct(null)}
         >
           <div
             className="flavor-modal"
@@ -566,7 +641,10 @@ export default function Storefront() {
                 <h2>{flavorProduct.name}</h2>
               </div>
 
-              <button onClick={() => setFlavorProduct(null)}>
+              <button
+                aria-label="Fechar seleção de sabor"
+                onClick={() => setFlavorProduct(null)}
+              >
                 <X />
               </button>
             </div>
@@ -599,7 +677,7 @@ export default function Storefront() {
               <ChevronRight size={19} />
             </button>
           </div>
-        </div>
+        </Modal>
       )}
     </main>
   );

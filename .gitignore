@@ -4,3 +4,8 @@ node_modules
 .env.local
 *.log
 .DS_Store
+!.env.example
+playwright-report/
+test-results/
+coverage/
+*.tsbuildinfo

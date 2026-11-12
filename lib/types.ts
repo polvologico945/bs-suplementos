@@ -49,7 +49,22 @@ export type StoreSettings = {
   accent_color: string;
 };
 
-export type CartItem = Product & {
+export type Brand = Omit<ProductType, "category_id">;
+export type EditForm<T extends { id: string }> = Omit<T, "id"> & {
+  id?: string;
+};
+
+export type CartEntry = {
+  id: string;
   quantity: number;
-  flavor?: string | null;
+  flavor: string | null;
+};
+
+export type CartItem = Product & CartEntry;
+export type Catalog = {
+  settings: StoreSettings;
+  categories: Category[];
+  productTypes: ProductType[];
+  products: Product[];
+  demo: boolean;
 };

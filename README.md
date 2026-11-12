@@ -1,79 +1,54 @@
-# BS Suplementos — catálogo com carrinho e WhatsApp
+# BS Suplementos
 
-Catálogo responsivo para link da bio do Instagram, com carrinho persistente, finalização via WhatsApp e painel administrativo totalmente visual.
+Catálogo de suplementos com filtros, sabores, carrinho persistente e pedidos pelo WhatsApp. Painel administrativo com Supabase Auth, PostgreSQL e Storage. Frontend e rotas públicas em Next.js, hospedáveis na Vercel.
 
-## O que já está pronto
+## Executar
 
-- Catálogo por categorias, pesquisa e produtos em destaque.
-- Carrinho salvo no navegador.
-- Finalização no WhatsApp `+55 85 99166-5030` com resumo automático do pedido.
-- Painel `/admin` para criar, editar e remover produtos e categorias.
-- Upload de logotipo, capa e fotos dos produtos pelo frontend.
-- Alteração de cores, nome, frase, Instagram, endereço e WhatsApp.
-- Login único com Supabase Auth e autorização por função `admin`.
-- Segurança por Row Level Security: visitantes somente leem itens visíveis; apenas o administrador altera dados.
-- Modo de demonstração quando o Supabase ainda não estiver configurado.
-
-## Tecnologia
-
-Next.js 16, React 19, TypeScript e Supabase (PostgreSQL, Auth, Storage e RLS).
-
-## Executar localmente
-
-1. Instale Node.js 20 ou superior.
-2. Na pasta do projeto:
+Node.js 24 LTS e npm. Instale a versão indicada em `.nvmrc`.
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local
 npm run dev
 ```
 
-Abra `http://localhost:3000`.
+Preencha as duas variáveis públicas do Supabase em `.env.local`. Sem elas, o ambiente local/Preview usa demonstração. Em `VERCEL_ENV=production`, a falta de configuração retorna indisponibilidade, sem exibir produtos fictícios.
 
-## Configurar o banco e o painel administrativo
+## Atualizar o Supabase existente
 
-1. Crie um projeto em Supabase.
-2. No SQL Editor, execute todo o arquivo `supabase/schema.sql`.
-3. Em **Authentication > Providers > Email**, mantenha e-mail/senha habilitado e desative cadastro público.
-4. Em **Authentication > Users**, crie manualmente o único usuário administrador com uma senha forte.
-5. No SQL Editor, execute, substituindo o e-mail:
+Faça um backup e valide primeiro em um projeto de teste. Execute **todo** o arquivo [`supabase/schema.sql`](supabase/schema.sql) no SQL Editor. Ele serve para instalação e atualização: cria as estruturas faltantes, preserva produtos/IDs/imagens existentes, converte marcas de texto em relações e pode ser reexecutado. Não execute o SQL antigo em `tests/fixtures`.
 
-```sql
-insert into public.profiles (id, role)
-select id, 'admin' from auth.users where email = 'EMAIL_DO_ADMIN@EXEMPLO.COM'
-on conflict (id) do update set role='admin';
+Desative cadastros públicos em Authentication, crie o administrador em Users e atribua o perfil `admin` usando a instrução comentada ao final do SQL. Use somente a publishable key no aplicativo; nunca `service_role` em `NEXT_PUBLIC_*`.
+
+## Testar a branch na Vercel
+
+Branch: `fix/catalogo-imagens-e-confiabilidade`. No projeto Vercel, habilite Preview para essa branch e configure as variáveis da `.env.example` no ambiente **Preview**, preferencialmente para um Supabase de teste atualizado. O Preview não recebe automaticamente as variáveis configuradas somente em Production. Mantenha a versão de produção até validar o Preview.
+
+A migração SQL não é executada automaticamente pelo deploy. Ela deve preceder o uso da versão nova com um banco existente. Detalhes de migração, rollback, cache e validação em [`docs/PROJETO.md`](docs/PROJETO.md).
+
+## Fotos e consumo
+
+- JPEG/HEIC/HEIF/PNG/WebP são aceitos no painel, até 20 MB por entrada.
+- Antes do upload, a foto vira WebP de até 1200 px e 350 KB, sem EXIF/GPS.
+- O nome deriva do SHA-256 do conteúdo: a mesma imagem não precisa ser armazenada novamente.
+- `/media/...` serve a mesma URL no catálogo, carrinho e painel; comprime fotos antigas e usa cache no navegador e no CDN.
+- Não há `next/image` no catálogo nem transformação paga por tamanho. Transferência da Vercel e primeiras leituras no Supabase continuam existindo. Veja os limites e como medir no documento do projeto.
+
+## Qualidade
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
 ```
 
-6. Copie `.env.example` para `.env.local` e preencha:
+Os testes de navegador iniciam um Supabase simulado **local**, compilam o aplicativo em produção e verificam rede, carrinho, layout, login e uploads reais. Os testes SQL executam o schema em PostgreSQL embarcado (PGlite), incluindo RLS e migração do schema anterior. O GitHub Actions executa essas verificações sem credenciais de produção.
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
-NEXT_PUBLIC_STORE_WHATSAPP=5585991665030
-```
+## Documentação
 
-Use apenas a chave pública no frontend. Nunca coloque chave secreta ou `service_role` em variável `NEXT_PUBLIC_*`.
-
-## Publicar
-
-A opção mais simples é Vercel:
-
-1. Envie o projeto para um repositório GitHub privado.
-2. Importe o repositório na Vercel.
-3. Cadastre as mesmas variáveis de ambiente.
-4. Publique e use a URL no perfil do Instagram.
-5. Depois, conecte um domínio próprio, por exemplo `catalogo.bssuplementos.com.br`.
-
-## Segurança operacional
-
-- Desative novos cadastros no Supabase.
-- Use senha exclusiva, longa e gerenciador de senhas.
-- Ative MFA para o administrador no Supabase quando disponível no plano escolhido.
-- Não compartilhe o login.
-- Revise usuários cadastrados periodicamente.
-- Fotos são limitadas a 5 MB e apenas JPEG, PNG ou WEBP.
-
-## Observação sobre as imagens iniciais
-
-O logotipo e a capa incluídos foram recortados da fotografia enviada. Pelo painel, o dono pode substituí-los por arquivos oficiais em alta resolução sem alterar código.
+- [Projeto completo, arquitetura e relações SQL](docs/PROJETO.md)
+- [Comparação de hospedagem e custos](docs/HOSPEDAGEM.md)
+- [Validação, cenários e limites dos testes](docs/VALIDACAO.md)

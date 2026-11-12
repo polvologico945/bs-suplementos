@@ -15,13 +15,11 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value:
-      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   },
   {
     key: "Strict-Transport-Security",
-    value:
-      "max-age=63072000; includeSubDomains; preload",
+    value: "max-age=63072000; includeSubDomains; preload",
   },
   {
     key: "Cross-Origin-Opener-Policy",
@@ -37,27 +35,48 @@ const securityHeaders = [
   },
 ];
 
+const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+  : "";
+const development = process.env.NODE_ENV !== "production";
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${development ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${supabaseOrigin}${development ? " ws: http: https:" : ""}`,
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-
-  allowedDevOrigins: [
-    "10.0.0.136",
-  ],
-  
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
-      },
-    ],
-  },
 
   async headers() {
     return [
       {
         source: "/:path*",
-        headers: securityHeaders,
+        headers: [
+          ...securityHeaders,
+          { key: "Content-Security-Policy", value: csp },
+        ],
+      },
+      {
+        source: "/admin/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store" }],
+      },
+      {
+        source: "/brand/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
       },
     ];
   },

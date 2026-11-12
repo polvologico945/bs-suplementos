@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { CatalogImage } from "@/components/catalog-image";
 import { FormEvent, useState } from "react";
-import { LockKeyhole } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AdminLogin() {
@@ -20,25 +21,30 @@ export default function AdminLogin() {
       setLoading(false);
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setError("E-mail ou senha inválidos.");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) {
+        setError("E-mail ou senha inválidos.");
+        return;
+      }
+      // Navegação completa faz o proxy validar os cookies recém-criados no servidor.
+      window.location.assign(new URL("/admin", window.location.origin));
+    } catch {
+      setError(
+        "Não foi possível conectar. Verifique sua conexão e tente novamente.",
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-    location.href = "/admin";
   }
 
   return (
     <main className="admin-login">
       <form onSubmit={submit} className="login-card">
-        <img src="/brand/logo-card.jpg" alt="BS Suplementos" />
-        <div className="login-icon">
-          <LockKeyhole />
-        </div>
+        <CatalogImage src="/brand/logo-card.jpg" alt="BS Suplementos" />
         <h1>Acesso administrativo</h1>
         <p>Área exclusiva para gerenciamento do catálogo.</p>
         <label>
@@ -63,7 +69,7 @@ export default function AdminLogin() {
         </label>
         {error && <div className="form-error">{error}</div>}
         <button disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
-        <a href="/">← Voltar ao catálogo</a>
+        <Link href="/">← Voltar ao catálogo</Link>
       </form>
     </main>
   );

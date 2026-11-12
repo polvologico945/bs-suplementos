@@ -1,12 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   Boxes,
-  ImagePlus,
   LayoutDashboard,
   LogOut,
-  Minus,
   Package,
   Pencil,
   Plus,
@@ -16,7 +14,18 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Category, Product, StoreSettings } from "@/lib/types";
+import { CatalogImage } from "@/components/catalog-image";
+import { ImageUpload } from "@/components/admin/image-upload";
+import { ProductEditor } from "@/components/admin/product-editor";
+import { TaxonomyEditor } from "@/components/admin/taxonomy-editor";
+import type {
+  Brand,
+  Category,
+  Product,
+  ProductType,
+  StoreSettings,
+  EditForm,
+} from "@/lib/types";
 import {
   sanitizeColor,
   sanitizeInstagram,
@@ -70,55 +79,83 @@ const blankBrand = {
   sort_order: 0,
   active: true,
 };
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/jpg", "image/gif", "image/heic", "image/HEIC"]);
-
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-
 export default function AdminDashboard() {
   const supabase = createClient();
   const [tab, setTab] = useState<
-  "products" | "categories" | "product-types" | "brands" | "settings">("products");
+    "products" | "categories" | "product-types" | "brands" | "settings"
+  >("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [productTypes, setProductTypes] = useState<any[]>([]);
-  const [brands, setBrands] = useState<any[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
-  const [productForm, setProductForm] = useState<any>(null);
-  const [categoryForm, setCategoryForm] = useState<any>(null);
-  const [productTypeForm, setProductTypeForm] = useState<any>(null);
-  const [brandForm, setBrandForm] = useState<any>(null);
+  const [productForm, setProductForm] = useState<EditForm<Product> | null>(
+    null,
+  );
+  const [categoryForm, setCategoryForm] = useState<EditForm<Category> | null>(
+    null,
+  );
+  const [productTypeForm, setProductTypeForm] =
+    useState<EditForm<ProductType> | null>(null);
+  const [brandForm, setBrandForm] = useState<EditForm<Brand> | null>(null);
   const [message, setMessage] = useState("");
+  const [uploadCount, setUploadCount] = useState(0);
+  const onUploadBusy = useCallback(
+    (busy: boolean) =>
+      setUploadCount((count) => Math.max(0, count + (busy ? 1 : -1))),
+    [],
+  );
+  const [loadError, setLoadError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
-  
-  useEffect(() => {
-    init();
-  }, []);
 
-  async function init() {
-    if (!supabase) {
-      location.href = "/admin/login";
-      return;
+  useEffect(() => {
+    let active = true;
+    async function init() {
+      try {
+        if (!supabase) {
+          window.location.assign(
+            new URL("/admin/login", window.location.origin),
+          );
+          return;
+        }
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth.user) {
+          window.location.assign(
+            new URL("/admin/login", window.location.origin),
+          );
+          return;
+        }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", auth.user.id)
+          .single();
+        if (profile?.role !== "admin") {
+          await supabase.auth.signOut();
+          window.location.assign(
+            new URL("/admin/login", window.location.origin),
+          );
+          return;
+        }
+        await refresh();
+        if (active) setReady(true);
+      } catch {
+        if (active)
+          setLoadError(
+            "Não foi possível carregar o painel. Confira a conexão e execute a migração SQL desta versão.",
+          );
+      }
     }
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) {
-      location.href = "/admin/login";
-      return;
-    }
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", auth.user.id)
-      .single();
-    if (profile?.role !== "admin") {
-      await supabase.auth.signOut();
-      location.href = "/admin/login";
-      return;
-    }
-    await refresh();
-    setReady(true);
-  }
+    void init();
+    return () => {
+      active = false;
+    };
+    // Cliente singleton e carga inicial: o painel recarrega somente após alterações.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function refresh() {
     if (!supabase) return;
@@ -129,6 +166,8 @@ export default function AdminDashboard() {
       supabase.from("brands").select("*").order("sort_order"),
       supabase.from("store_settings").select("*").eq("id", 1).single(),
     ]);
+    if ([p, c, t, b, s].some((result) => result.error))
+      throw new Error("Falha ao carregar os dados do painel.");
     setProducts((p.data || []) as Product[]);
     setCategories((c.data || []) as Category[]);
     setProductTypes(t.data || []);
@@ -136,55 +175,20 @@ export default function AdminDashboard() {
     setSettings(s.data as StoreSettings);
   }
 
-  async function upload(file: File, folder: string) {
-    if (!supabase) return null;
-    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      throw new Error("Formato inválido. Use JPG, PNG, HEIC ou WEBP.");
-    }
-
-    if (file.size > MAX_IMAGE_SIZE) {
-      throw new Error("A imagem deve ter no máximo 5 MB.");
-    }
-
-    const extensionByMime: Record<string, string> = {
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/webp": "webp",
-      "image/jpg": "jpg",
-      "image/gif": "gif",
-      "image/heic": "heic",
-      "image/HEIC": "HEIC",
-    };
-
-    const ext = extensionByMime[file.type];
-    const uniqueId =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-
-    const path = `${folder}/${uniqueId}.${ext}`;
-    const { error } = await supabase.storage
-      .from("catalog")
-      .upload(path, file, { upsert: false, contentType: file.type });
-    if (error) throw error;
-    return supabase.storage.from("catalog").getPublicUrl(path).data.publicUrl;
-  }
-
   async function saveProduct(e: FormEvent) {
     e.preventDefault();
 
     if (!supabase || !productForm) return;
 
-    const data: any = {
-      // Mantemos apenas os IDs para as relações com outras tabelas
+    const data: Omit<Product, "id"> = {
       category_id: productForm.category_id || null,
       product_type_id: productForm.product_type_id || null,
       brand_id: productForm.brand_id || null,
 
       name: sanitizeText(productForm.name, { maxLength: 120 }),
-      
-      // REMOVIDO: a linha 'brand: ...' foi removida para evitar conflito com 'brand_id'
-      
+
+      brand:
+        brands.find((brand) => brand.id === productForm.brand_id)?.name || null,
       description: sanitizeNullableText(productForm.description, {
         maxLength: 1500,
         multiline: true,
@@ -195,35 +199,42 @@ export default function AdminDashboard() {
         max: 9999999,
       }),
 
-      promotional_price: sanitizeNonNegativeNumber(productForm.promotional_price, {
-        nullable: true,
-        max: 9999999,
-      }),
+      promotional_price: sanitizeNonNegativeNumber(
+        productForm.promotional_price,
+        {
+          nullable: true,
+          max: 9999999,
+        },
+      ),
 
-      flavors: Array.isArray(productForm.flavors)
-        ? productForm.flavors
-            .map((flavor: string) => sanitizeText(flavor, { maxLength: 80 }))
-            .filter(Boolean)
-        : [],
+      flavors: [
+        ...new Set(
+          productForm.flavors
+            .map((flavor) => sanitizeText(flavor, { maxLength: 80 }))
+            .filter(Boolean),
+        ),
+      ],
 
-      image_url: typeof productForm.image_url === "string" ? productForm.image_url : null,
+      image_url:
+        typeof productForm.image_url === "string"
+          ? productForm.image_url
+          : null,
       active: Boolean(productForm.active),
       featured: Boolean(productForm.featured),
-      stock_status: ["available", "low", "unavailable"].includes(productForm.stock_status)
-        ? productForm.stock_status
-        : "available",
+      stock_status: productForm.stock_status,
       sort_order: sanitizeInteger(productForm.sort_order),
     };
 
+    if (
+      data.promotional_price !== null &&
+      (data.price === null || data.promotional_price >= data.price)
+    ) {
+      setMessage("O preço promocional deve ser menor que o preço normal.");
+      return;
+    }
     if (!data.name) {
       setMessage("Informe um nome válido para o produto.");
       return;
-    }
-
-    
-    if (data.brand_id) {
-      const selectedBrand = brands.find(b => b.id === data.brand_id);
-      if (selectedBrand) data.brand = selectedBrand.name;
     }
 
     const result = productForm.id
@@ -321,15 +332,9 @@ export default function AdminDashboard() {
           .from("product_types")
           .update(data)
           .eq("id", productTypeForm.id)
-      : await supabase
-          .from("product_types")
-          .insert(data);
+      : await supabase.from("product_types").insert(data);
 
-    setMessage(
-      result.error
-        ? result.error.message
-        : "Tipo de produto salvo."
-    );
+    setMessage(result.error ? result.error.message : "Tipo de produto salvo.");
 
     if (!result.error) {
       setProductTypeForm(null);
@@ -367,19 +372,10 @@ export default function AdminDashboard() {
     }
 
     const result = brandForm.id
-      ? await supabase
-          .from("brands")
-          .update(data)
-          .eq("id", brandForm.id)
-      : await supabase
-          .from("brands")
-          .insert(data);
+      ? await supabase.from("brands").update(data).eq("id", brandForm.id)
+      : await supabase.from("brands").insert(data);
 
-    setMessage(
-      result.error
-        ? result.error.message
-        : "Marca salva."
-    );
+    setMessage(result.error ? result.error.message : "Marca salva.");
 
     if (!result.error) {
       setBrandForm(null);
@@ -417,6 +413,10 @@ export default function AdminDashboard() {
       accent_color: sanitizeColor(settings.accent_color, "#22c55e"),
     };
 
+    if (!safeSettings.store_name || safeSettings.whatsapp.length < 10) {
+      setMessage("Informe o nome da loja e um WhatsApp válido com DDI.");
+      return;
+    }
     const { error } = await supabase
       .from("store_settings")
       .update(safeSettings)
@@ -432,30 +432,79 @@ export default function AdminDashboard() {
     setMessage(error ? error.message : "Configurações salvas.");
   }
 
-  async function remove(table: "products" | "categories" | "product_types" | "brands", id: string) {
-    if (!supabase || !confirm("Tem certeza que deseja remover?")) return;
-    const { error } = await supabase.from(table).delete().eq("id", id);
-    setMessage(error ? error.message : "Item removido.");
-    await refresh();
+  async function submit(
+    event: FormEvent,
+    action: (event: FormEvent) => Promise<void>,
+  ) {
+    event.preventDefault();
+    if (saving || uploadCount > 0) return;
+    setSaving(true);
+    try {
+      await action(event);
+    } catch {
+      setMessage(
+        "Não foi possível concluir a operação. Verifique a conexão e tente novamente.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
+  async function remove(
+    table: "products" | "categories" | "product_types" | "brands",
+    id: string,
+  ) {
+    if (
+      !supabase ||
+      saving ||
+      uploadCount > 0 ||
+      !confirm("Tem certeza que deseja remover?")
+    )
+      return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) throw error;
+      setMessage("Item removido.");
+      await refresh();
+    } catch {
+      setMessage(
+        "Não foi possível remover o item. Verifique os vínculos e sua conexão.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loadError)
+    return (
+      <main className="loading">
+        <div role="alert">
+          <p>{loadError}</p>
+          <button onClick={() => location.reload()}>Tentar novamente</button>
+        </div>
+      </main>
+    );
   if (!ready) return <div className="loading">Validando acesso…</div>;
   const filteredProducts =
     categoryFilter === "all"
       ? products
       : products.filter((p) => p.category_id === categoryFilter);
-      
+
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <img src={settings?.logo_url || "/brand/logo-card.jpg"} alt="" />
+          <CatalogImage
+            src={settings?.logo_url || "/brand/logo-card.jpg"}
+            alt=""
+          />
           <div>
             <strong>BS Suplementos</strong>
             <span>Administração</span>
           </div>
         </div>
-        
+
         <nav>
           <button
             className={tab === "products" ? "active" : ""}
@@ -463,7 +512,7 @@ export default function AdminDashboard() {
           >
             <Package /> Produtos
           </button>
-          
+
           <button
             className={tab === "categories" ? "active" : ""}
             onClick={() => setTab("categories")}
@@ -471,7 +520,6 @@ export default function AdminDashboard() {
             <Boxes /> Categorias
           </button>
 
-          {/* Mova estes para fora do botão de settings */}
           <button
             className={tab === "product-types" ? "active" : ""}
             onClick={() => setTab("product-types")}
@@ -495,13 +543,15 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="admin-sidebar-bottom">
-          <a href="/" target="_blank">
+          <a href="/" target="_blank" rel="noreferrer">
             <LayoutDashboard /> Ver catálogo
           </a>
           <button
             onClick={async () => {
               await supabase?.auth.signOut();
-              location.href = "/admin/login";
+              window.location.assign(
+                new URL("/admin/login", window.location.origin),
+              );
             }}
           >
             <LogOut /> Sair
@@ -527,7 +577,6 @@ export default function AdminDashboard() {
           </div>
           {tab === "products" && (
             <div className="admin-header-actions">
-
               <div className="category-filter-wrapper">
                 <button
                   className="admin-primary"
@@ -572,7 +621,6 @@ export default function AdminDashboard() {
               >
                 <Plus /> Novo produto
               </button>
-
             </div>
           )}
           {tab === "categories" && (
@@ -586,9 +634,7 @@ export default function AdminDashboard() {
           {tab === "product-types" && (
             <button
               className="admin-primary"
-              onClick={() =>
-                setProductTypeForm({ ...blankProductType })
-              }
+              onClick={() => setProductTypeForm({ ...blankProductType })}
             >
               <Plus /> Novo tipo
             </button>
@@ -597,16 +643,18 @@ export default function AdminDashboard() {
           {tab === "brands" && (
             <button
               className="admin-primary"
-              onClick={() =>
-                setBrandForm({ ...blankBrand })
-              }
+              onClick={() => setBrandForm({ ...blankBrand })}
             >
               <Plus /> Nova marca
             </button>
           )}
         </header>
         {message && (
-          <div className="admin-message" onClick={() => setMessage("")}>
+          <div
+            className="admin-message"
+            role="status"
+            onClick={() => setMessage("")}
+          >
             {message}
             <X size={16} />
           </div>
@@ -614,7 +662,6 @@ export default function AdminDashboard() {
 
         {tab === "products" && (
           <>
-
             <div className="admin-table-wrap">
               <table>
                 <thead>
@@ -633,7 +680,7 @@ export default function AdminDashboard() {
                       <td>
                         <div className="table-product">
                           {p.image_url ? (
-                            <img src={p.image_url} alt={p.name} />
+                            <CatalogImage src={p.image_url} alt={p.name} />
                           ) : (
                             <div className="mini-placeholder">
                               <Package />
@@ -653,13 +700,11 @@ export default function AdminDashboard() {
                       </td>
 
                       <td>
-                        {p.promotional_price || p.price ? (
-                          `R$ ${Number(p.promotional_price ?? p.price)
-                            .toFixed(2)
-                            .replace(".", ",")}`
-                        ) : (
-                          "Sob consulta"
-                        )}
+                        {(p.promotional_price ?? p.price) !== null
+                          ? `R$ ${Number(p.promotional_price ?? p.price)
+                              .toFixed(2)
+                              .replace(".", ",")}`
+                          : "Sob consulta"}
                       </td>
 
                       <td>
@@ -733,30 +778,19 @@ export default function AdminDashboard() {
                   <strong>{type.name}</strong>
 
                   <p>
-                    {categories.find(
-                      (c) => c.id === type.category_id
-                    )?.name || "Sem categoria"}
+                    {categories.find((c) => c.id === type.category_id)?.name ||
+                      "Sem categoria"}
                   </p>
 
-                  <span>
-                    {type.description || "Sem descrição"}
-                  </span>
+                  <span>{type.description || "Sem descrição"}</span>
                 </div>
 
                 <div className="actions">
-                  <button
-                    onClick={() =>
-                      setProductTypeForm({ ...type })
-                    }
-                  >
+                  <button onClick={() => setProductTypeForm({ ...type })}>
                     <Pencil />
                   </button>
 
-                  <button
-                    onClick={() =>
-                      remove("product_types" as any, type.id)
-                    }
-                  >
+                  <button onClick={() => remove("product_types", type.id)}>
                     <Trash2 />
                   </button>
                 </div>
@@ -779,19 +813,11 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="actions">
-                  <button
-                    onClick={() =>
-                      setBrandForm({ ...brand })
-                    }
-                  >
+                  <button onClick={() => setBrandForm({ ...brand })}>
                     <Pencil />
                   </button>
 
-                  <button
-                    onClick={() =>
-                      remove("brands" as any, brand.id)
-                    }
-                  >
+                  <button onClick={() => remove("brands", brand.id)}>
                     <Trash2 />
                   </button>
                 </div>
@@ -800,10 +826,11 @@ export default function AdminDashboard() {
           </div>
         )}
 
-
-
         {tab === "settings" && settings && (
-          <form className="settings-form" onSubmit={saveSettings}>
+          <form
+            className="settings-form"
+            onSubmit={(event) => void submit(event, saveSettings)}
+          >
             <div className="form-section">
               <h2>Identidade da loja</h2>
               <div className="form-grid">
@@ -830,38 +857,55 @@ export default function AdminDashboard() {
             <div className="form-section">
               <h2>Imagens do site</h2>
               <div className="upload-grid">
-                <label className="upload-box">
-                  <ImagePlus />
-                  <strong>Alterar logotipo</strong>
-                  <span>PNG, JPG ou WEBP</span>
+                <ImageUpload
+                  label="Logotipo"
+                  value={settings.logo_url}
+                  onBusy={onUploadBusy}
+                  onChange={(url) =>
+                    setSettings((current) =>
+                      current ? { ...current, logo_url: url } : current,
+                    )
+                  }
+                />
+                <ImageUpload
+                  label="Imagem de capa"
+                  value={settings.hero_image_url}
+                  onBusy={onUploadBusy}
+                  onChange={(url) =>
+                    setSettings((current) =>
+                      current ? { ...current, hero_image_url: url } : current,
+                    )
+                  }
+                />
+              </div>
+            </div>
+            <div className="form-section">
+              <h2>Cores da loja</h2>
+              <div className="form-grid">
+                <label>
+                  Cor principal
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (f)
-                        setSettings({
-                          ...settings,
-                          logo_url: await upload(f, "branding"),
-                        });
-                    }}
+                    type="color"
+                    value={settings.primary_color}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        primary_color: event.target.value,
+                      })
+                    }
                   />
                 </label>
-                <label className="upload-box">
-                  <ImagePlus />
-                  <strong>Alterar imagem de capa</strong>
-                  <span>Imagem horizontal recomendada</span>
+                <label>
+                  Cor de destaque
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (f)
-                        setSettings({
-                          ...settings,
-                          hero_image_url: await upload(f, "branding"),
-                        });
-                    }}
+                    type="color"
+                    value={settings.accent_color}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        accent_color: event.target.value,
+                      })
+                    }
                   />
                 </label>
               </div>
@@ -901,7 +945,10 @@ export default function AdminDashboard() {
                 </label>
               </div>
             </div>
-            <button className="admin-primary save">
+            <button
+              className="admin-primary save"
+              disabled={uploadCount > 0 || saving}
+            >
               <Save /> Salvar configurações
             </button>
           </form>
@@ -909,511 +956,48 @@ export default function AdminDashboard() {
       </section>
 
       {productForm && (
-        <div className="modal-backdrop">
-          <form className="admin-modal" onSubmit={saveProduct}>
-            <div className="modal-title">
-              <div>
-                <span>CATÁLOGO</span>
-                <h2>{productForm.id ? "Editar produto" : "Novo produto"}</h2>
-              </div>
-              <button type="button" onClick={() => setProductForm(null)}>
-                <X />
-              </button>
-            </div>
-            <div className="form-grid">
-              <label className="wide">
-                Nome
-                <input
-                  required
-                  value={productForm.name}
-                  onChange={(e) =>
-                    setProductForm({ ...productForm, name: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Categoria
-                <select
-                  value={productForm.category_id || ""}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      category_id: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Sem categoria</option>
-                  {categories.map((c) => (
-                    <option value={c.id} key={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Tipo de produto
-                <select
-                  value={productForm.product_type_id || ""}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      product_type_id: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Selecione o tipo</option>
-
-                  {productTypes
-                    .filter(
-                      (type) => !productForm.category_id ||
-                        type.category_id === productForm.category_id
-                    )
-                    .map((type) => (
-                      <option value={type.id} key={type.id}>
-                        {type.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label>
-                Marca
-                <select
-                  value={productForm.brand_id || ""}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      brand_id: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Selecione a marca</option>
-
-                  {brands.map((brand) => (
-                    <option value={brand.id} key={brand.id}>
-                      {brand.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Preço
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={productForm.price ?? ""}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      price: e.target.value ? Number(e.target.value) : null,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Preço promocional
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={productForm.promotional_price ?? ""}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      promotional_price: e.target.value
-                        ? Number(e.target.value)
-                        : null,
-                    })
-                  }
-                />
-              </label>
-              <label className="wide">
-                Descrição
-                <textarea
-                  value={productForm.description || ""}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Status do estoque
-                <select
-                  value={productForm.stock_status}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      stock_status: e.target.value,
-                    })
-                  }
-                >
-                  <option value="available">Disponível</option>
-                  <option value="low">Estoque baixo</option>
-                  <option value="unavailable">Indisponível</option>
-                </select>
-              </label>
-              <label>
-                Ordem de exibição
-                <input
-                  type="number"
-                  value={productForm.sort_order}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      sort_order: Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={productForm.active}
-                  onChange={(e) =>
-                    setProductForm({ ...productForm, active: e.target.checked })
-                  }
-                />{" "}
-                Visível no catálogo
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={productForm.featured}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      featured: e.target.checked,
-                    })
-                  }
-                />{" "}
-                Marcar como destaque
-              </label>
-              <div className="wide product-flavors">
-                <div className="flavors-header">
-                  <div>
-                    <strong>Sabores</strong>
-                    <span>
-                      Adicione os sabores disponíveis para este produto.
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="add-flavor"
-                    onClick={() =>
-                      setProductForm({
-                        ...productForm,
-                        flavors: [...(productForm.flavors || []), ""],
-                      })
-                    }
-                  >
-                    <Plus size={16} />
-                    Adicionar sabor
-                  </button>
-                </div>
-
-                <div className="flavors-list">
-                  {(productForm.flavors || []).map(
-                    (flavor: string, index: number) => (
-                      <div className="flavor-row" key={index}>
-                        <input
-                          value={flavor}
-                          placeholder={`Sabor ${index + 1}`}
-                          onChange={(e) => {
-                            const flavors = [...(productForm.flavors || [])];
-                            flavors[index] = e.target.value;
-
-                            setProductForm({
-                              ...productForm,
-                              flavors,
-                            });
-                          }}
-                        />
-
-                        <button
-                          type="button"
-                          className="remove-flavor"
-                          aria-label="Remover sabor"
-                          onClick={() => {
-                            const flavors = [...(productForm.flavors || [])];
-                            flavors.splice(index, 1);
-
-                            setProductForm({
-                              ...productForm,
-                              flavors,
-                            });
-                          }}
-                        >
-                          <Minus size={16} />
-                        </button>
-                      </div>
-                    )
-                  )}
-
-                  {(!productForm.flavors ||
-                    productForm.flavors.length === 0) && (
-                    <p className="no-flavors">
-                      Nenhum sabor cadastrado. Se o produto não tiver sabor,
-                      deixe esta lista vazia.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <label className="upload-box compact">
-              <ImagePlus />
-              <strong>Foto do produto</strong>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (f)
-                    setProductForm({
-                      ...productForm,
-                      image_url: await upload(f, "products"),
-                    });
-                }}
-              />
-            </label>
-            {productForm.image_url && (
-              <img
-                className="form-preview"
-                src={productForm.image_url}
-                alt="Prévia"
-              />
-            )}
-            <button className="admin-primary save">
-              <Save /> Salvar produto
-            </button>
-          </form>
-        </div>
+        <ProductEditor
+          productForm={productForm}
+          setProductForm={setProductForm}
+          categories={categories}
+          productTypes={productTypes}
+          brands={brands}
+          uploadCount={uploadCount}
+          saving={saving}
+          onUploadBusy={onUploadBusy}
+          onSubmit={(event) => void submit(event, saveProduct)}
+        />
       )}
-
       {productTypeForm && (
-        <div className="modal-backdrop">
-          <form
-            className="admin-modal small"
-            onSubmit={saveProductType}
-          >
-            <div className="modal-title">
-              <div>
-                <span>ORGANIZAÇÃO</span>
-                <h2>
-                  {productTypeForm.id
-                    ? "Editar tipo de produto"
-                    : "Novo tipo de produto"}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setProductTypeForm(null)}
-              >
-                <X />
-              </button>
-            </div>
-
-            <div className="form-grid">
-              <label className="wide">
-                Categoria
-
-                <select
-                  required
-                  value={productTypeForm.category_id}
-                  onChange={(e) =>
-                    setProductTypeForm({
-                      ...productTypeForm,
-                      category_id: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">
-                    Selecione uma categoria
-                  </option>
-
-                  {categories.map((category) => (
-                    <option
-                      value={category.id}
-                      key={category.id}
-                    >
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="wide">
-                Nome
-
-                <input
-                  required
-                  value={productTypeForm.name}
-                  onChange={(e) =>
-                    setProductTypeForm({
-                      ...productTypeForm,
-                      name: e.target.value,
-                    })
-                  }
-                />
-              </label>
-
-              <label className="wide">
-                Descrição
-
-                <textarea
-                  value={productTypeForm.description || ""}
-                  onChange={(e) =>
-                    setProductTypeForm({
-                      ...productTypeForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </label>
-            </div>
-
-            <button className="admin-primary save">
-              <Save /> Salvar tipo
-            </button>
-          </form>
-        </div>
+        <TaxonomyEditor
+          value={productTypeForm}
+          title="tipo de produto"
+          categories={categories}
+          busy={saving || uploadCount > 0}
+          onChange={setProductTypeForm}
+          onClose={() => setProductTypeForm(null)}
+          onSubmit={(event) => void submit(event, saveProductType)}
+        />
       )}
-
       {brandForm && (
-        <div className="modal-backdrop">
-          <form
-            className="admin-modal small"
-            onSubmit={saveBrand}
-          >
-            <div className="modal-title">
-              <div>
-                <span>ORGANIZAÇÃO</span>
-                <h2>
-                  {brandForm.id
-                    ? "Editar marca"
-                    : "Nova marca"}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setBrandForm(null)}
-              >
-                <X />
-              </button>
-            </div>
-
-            <div className="form-grid">
-              <label className="wide">
-                Nome
-
-                <input
-                  required
-                  value={brandForm.name}
-                  onChange={(e) =>
-                    setBrandForm({
-                      ...brandForm,
-                      name: e.target.value,
-                    })
-                  }
-                />
-              </label>
-
-              <label className="wide">
-                Descrição
-
-                <textarea
-                  value={brandForm.description || ""}
-                  onChange={(e) =>
-                    setBrandForm({
-                      ...brandForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </label>
-            </div>
-
-            <button className="admin-primary save">
-              <Save /> Salvar marca
-            </button>
-          </form>
-        </div>
+        <TaxonomyEditor
+          value={brandForm}
+          title="marca"
+          busy={saving || uploadCount > 0}
+          onChange={setBrandForm}
+          onClose={() => setBrandForm(null)}
+          onSubmit={(event) => void submit(event, saveBrand)}
+        />
       )}
-
       {categoryForm && (
-        <div className="modal-backdrop">
-          <form className="admin-modal small" onSubmit={saveCategory}>
-            <div className="modal-title">
-              <div>
-                <span>ORGANIZAÇÃO</span>
-                <h2>
-                  {categoryForm.id ? "Editar categoria" : "Nova categoria"}
-                </h2>
-              </div>
-              <button type="button" onClick={() => setCategoryForm(null)}>
-                <X />
-              </button>
-            </div>
-            <div className="form-grid">
-              <label className="wide">
-                Nome
-                <input
-                  required
-                  value={categoryForm.name}
-                  onChange={(e) =>
-                    setCategoryForm({ ...categoryForm, name: e.target.value })
-                  }
-                />
-              </label>
-              <label className="wide">
-                Descrição
-                <textarea
-                  value={categoryForm.description || ""}
-                  onChange={(e) =>
-                    setCategoryForm({
-                      ...categoryForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Ordem
-                <input
-                  type="number"
-                  value={categoryForm.sort_order}
-                  onChange={(e) =>
-                    setCategoryForm({
-                      ...categoryForm,
-                      sort_order: Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={categoryForm.active}
-                  onChange={(e) =>
-                    setCategoryForm({
-                      ...categoryForm,
-                      active: e.target.checked,
-                    })
-                  }
-                />{" "}
-                Visível
-              </label>
-            </div>
-            <button className="admin-primary save">
-              <Save /> Salvar categoria
-            </button>
-          </form>
-        </div>
+        <TaxonomyEditor
+          value={categoryForm}
+          title="categoria"
+          busy={saving || uploadCount > 0}
+          onChange={setCategoryForm}
+          onClose={() => setCategoryForm(null)}
+          onSubmit={(event) => void submit(event, saveCategory)}
+        />
       )}
     </main>
   );

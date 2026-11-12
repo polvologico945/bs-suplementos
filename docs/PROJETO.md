@@ -6,7 +6,7 @@
 
 A loja apresenta suplementos, organiza produtos em categorias/tipos/marcas, oferece sabores e monta um pedido para atendimento no WhatsApp. Os valores são estimados; a loja confirma estoque, entrega e pagamento. Não há gateway de pagamento, cálculo de frete, reserva de estoque ou persistência de pedidos no banco.
 
-Visitantes usam `/`. Administradores autenticados usam `/admin/login` e `/admin`. A função no perfil autoriza o acesso: ter uma conta válida não equivale a ser administrador.
+Visitantes usam `/`. Administradores autenticados usam `/admin/login` e `/admin`. A recuperação do acesso usa a rota pública `/redefinir-senha`. A função no perfil autoriza o acesso: ter uma conta válida não equivale a ser administrador.
 
 ## 2. Arquitetura
 
@@ -147,6 +147,19 @@ O proxy protege somente `/admin`: páginas públicas, fotos e catálogo não ren
 A CSP restringe fontes e conexões. Há proteção contra enquadramento, MIME sniffing e envio desnecessário de referrer. `wasm-unsafe-eval` atende ao decodificador HEIC; `unsafe-eval` de JavaScript só existe no desenvolvimento. `unsafe-inline` permanece para o runtime padrão do Next.js; uma política por nonce exigiria renderização dinâmica e precisa de avaliação separada.
 
 A sanitização no frontend melhora a qualidade das entradas. RLS, constraints, FKs, triggers e regras do Storage fazem as verificações persistentes. Desative cadastro público no Supabase e use senha exclusiva para o administrador.
+
+### Recuperação e nova senha
+
+O link **Alterar senha** fica abaixo do campo de senha no login. A rota pública
+`/redefinir-senha` solicita o e-mail ou mostra a nova senha quando o Supabase
+validou um link de recuperação. Links enviados pelo Dashboard à Site URL são
+encaminhados para essa rota, sem consultas extras no catálogo. O fluxo trata
+tokens do Dashboard, PKCE do aplicativo e TokenHash de template personalizado.
+
+A senha é gravada por `auth.updateUser`, no Supabase Auth; não é armazenada nas
+tabelas do catálogo. Após a alteração, a sessão de recuperação deste navegador é
+encerrada e um novo login é solicitado. O perfil e as regras RLS permanecem os
+mesmos. Configuração, limites e testes estão em `RECUPERACAO-DE-SENHA.md`.
 
 ## 6. Fluxo e orçamento das imagens
 

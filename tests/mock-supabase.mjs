@@ -23,7 +23,7 @@ const token = [
       role: "authenticated",
     }),
   ).toString("base64url"),
-  "signature",
+  Buffer.from("test-signature").toString("base64url"),
 ].join(".");
 const settings = {
   id: 1,
@@ -67,6 +67,20 @@ let tables;
 let requests;
 let uploads;
 let failCatalog;
+let authPasswordDigest;
+let recoveries;
+let passwordUpdates;
+let recoveryCodes;
+let recoveryRateLimited;
+const digest = (value) => createHash("sha256").update(value).digest("hex");
+const sessionData = () => ({
+  access_token: token,
+  refresh_token: "test-refresh",
+  expires_in: 3600,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  token_type: "bearer",
+  user,
+});
 function reset() {
   tables = {
     store_settings: [structuredClone(settings)],
@@ -79,6 +93,11 @@ function reset() {
   requests = {};
   uploads = [];
   failCatalog = false;
+  authPasswordDigest = digest("senha-de-teste");
+  recoveries = [];
+  passwordUpdates = 0;
+  recoveryCodes = new Map();
+  recoveryRateLimited = false;
 }
 reset();
 const server = createServer(async (req, res) => {
@@ -108,7 +127,7 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (url.pathname === "/__stats") {
-    json({ requests, uploads });
+    json({ requests, uploads, recoveries, passwordUpdates });
     return;
   }
   if (url.pathname === "/__product") {
@@ -121,19 +140,119 @@ const server = createServer(async (req, res) => {
     json({ ok: true });
     return;
   }
-  requests[url.pathname] = (requests[url.pathname] || 0) + 1;
-  if (url.pathname === "/auth/v1/token") {
-    json({
+  if (url.pathname === "/__recovery-limit") {
+    recoveryRateLimited = true;
+    json({ ok: true });
+    return;
+  }
+  if (url.pathname === "/__recovery-link") {
+    const target = new URL(
+      url.searchParams.get("path") || "/",
+      "http://127.0.0.1:3000",
+    );
+    if (url.searchParams.get("flow") === "pkce") {
+      const pending = recoveries.at(-1);
+      if (!pending) {
+        json({ error: "Solicite a recuperação primeiro." }, 400);
+        return;
+      }
+      const redirect = new URL(pending.redirectTo);
+      const code = randomUUID();
+      recoveryCodes.set(code, pending.challenge);
+      redirect.searchParams.set("code", code);
+      json({ url: redirect.href });
+      return;
+    }
+    target.hash = new URLSearchParams({
       access_token: token,
       refresh_token: "test-refresh",
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
       token_type: "bearer",
-      user,
+      expires_in: "3600",
+      type: "recovery",
+    }).toString();
+    json({ url: target.href });
+    return;
+  }
+  requests[url.pathname] = (requests[url.pathname] || 0) + 1;
+  const authenticated = req.headers.authorization === `Bearer ${token}`;
+  if (url.pathname === "/auth/v1/recover") {
+    if (recoveryRateLimited) {
+      json(
+        { code: "over_email_send_rate_limit", message: "Rate limited" },
+        429,
+      );
+      return;
+    }
+    const input = JSON.parse((await body()).toString());
+    recoveries.push({
+      email: input.email,
+      redirectTo: url.searchParams.get("redirect_to"),
+      challenge: input.code_challenge,
     });
+    json({});
+    return;
+  }
+  if (url.pathname === "/auth/v1/token") {
+    const input = JSON.parse((await body()).toString());
+    const grant = url.searchParams.get("grant_type");
+    if (grant === "pkce") {
+      const challenge = recoveryCodes.get(input.auth_code);
+      const provided = createHash("sha256")
+        .update(input.code_verifier || "")
+        .digest("base64url");
+      if (!challenge || challenge !== provided) {
+        json(
+          { code: "flow_state_not_found", message: "Invalid recovery code" },
+          400,
+        );
+        return;
+      }
+      recoveryCodes.delete(input.auth_code);
+    } else if (
+      grant === "password" &&
+      digest(input.password || "") !== authPasswordDigest
+    ) {
+      json(
+        { code: "invalid_credentials", message: "Invalid credentials" },
+        400,
+      );
+      return;
+    } else if (
+      grant === "refresh_token" &&
+      input.refresh_token !== "test-refresh"
+    ) {
+      json(
+        { code: "refresh_token_not_found", message: "Invalid session" },
+        400,
+      );
+      return;
+    }
+    json(sessionData());
+    return;
+  }
+  if (url.pathname === "/auth/v1/verify") {
+    const input = JSON.parse((await body()).toString());
+    if (input.type !== "recovery" || input.token_hash !== "test-token-hash") {
+      json({ code: "otp_expired", message: "Expired link" }, 403);
+      return;
+    }
+    json(sessionData());
     return;
   }
   if (url.pathname === "/auth/v1/user") {
+    if (!authenticated) {
+      json({ code: "bad_jwt", message: "Invalid session" }, 401);
+      return;
+    }
+    if (req.method === "PUT") {
+      const input = JSON.parse((await body()).toString());
+      if (typeof input.password !== "string" || input.password.length < 12) {
+        json({ code: "weak_password", message: "Weak password" }, 422);
+        return;
+      }
+      authPasswordDigest = digest(input.password);
+      passwordUpdates++;
+    }
     json(user);
     return;
   }

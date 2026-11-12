@@ -67,6 +67,13 @@ export default function AdminLogin() {
             autoComplete="current-password"
           />
         </label>
+        <Link
+          className="password-change-link"
+          href="/redefinir-senha"
+          prefetch={false}
+        >
+          Alterar senha
+        </Link>
         {error && <div className="form-error">{error}</div>}
         <button disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
         <Link href="/">← Voltar ao catálogo</Link>

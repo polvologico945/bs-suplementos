@@ -49,6 +49,7 @@ Os testes de navegador iniciam um Supabase simulado **local**, compilam o aplica
 
 ## Documentação
 
+- [Recuperação e alteração de senha](docs/RECUPERACAO-DE-SENHA.md)
 - [Projeto completo, arquitetura e relações SQL](docs/PROJETO.md)
 - [Comparação de hospedagem e custos](docs/HOSPEDAGEM.md)
 - [Validação, cenários e limites dos testes](docs/VALIDACAO.md)
@@ -98,3 +99,16 @@ npm run dev
 O `git pull` atualiza o código e o lockfile; `npm ci` instala exatamente as
 versões registradas nele. Isso evita módulos ausentes e preserva as correções de
 segurança publicadas. Consulte `docs/VALIDACAO.md` para os resultados da auditoria.
+
+## Alterar senha do painel
+
+Use **Alterar senha**, abaixo do campo de senha em `/admin/login`, ou acesse
+`/redefinir-senha`. O fluxo permite pedir o e-mail de recuperação e, depois da
+validação do link, cadastrar a nova senha diretamente no Supabase Auth.
+
+Links enviados pelo Dashboard do Supabase também são encaminhados da página
+inicial à tela de redefinição. Em **Authentication → URL Configuration**, mantenha
+a Site URL como endereço principal e autorize esse domínio com o caminho
+`/redefinir-senha` em Redirect URLs. Para uso no domínio público, publique a
+versão da aplicação que contém a rota. O fluxo não exige outra migração SQL.
+Veja o roteiro completo em `docs/RECUPERACAO-DE-SENHA.md`.

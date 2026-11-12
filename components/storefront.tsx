@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { loadCatalog } from "@/lib/store";
+import { recoveryTarget } from "@/lib/auth/recovery-link";
 import type {
   Category,
   Product,
@@ -58,6 +59,7 @@ export default function Storefront() {
   const [selectedFlavor, setSelectedFlavor] = useState("");
 
   useEffect(() => {
+    if (recoveryTarget(new URL(window.location.href))) return;
     let active = true;
     loadCatalog()
       .then((data) => {

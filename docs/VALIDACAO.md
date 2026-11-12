@@ -4,14 +4,14 @@ Data: **2026-11-12**. Revisão: Carla Evelyn.
 
 ## Verificações locais
 
-| Verificação                          | Resultado                                            |
-| ------------------------------------ | ---------------------------------------------------- |
-| ESLint                               | Sem erros ou avisos no código do projeto             |
-| TypeScript estrito                   | Aprovado                                             |
-| PostgreSQL/PGlite, carrinho e mídia  | 33 testes aprovados                                  |
-| Build Next.js de produção            | Aprovado, também executado pelos testes de navegador |
-| Chromium/Playwright                  | 5 cenários aprovados                                 |
-| Auditoria npm completa e de produção | 0 vulnerabilidades conhecidas na consulta realizada  |
+| Verificação                                      | Resultado                                            |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| ESLint                                           | Sem erros ou avisos no código do projeto             |
+| TypeScript estrito                               | Aprovado                                             |
+| PostgreSQL/PGlite, carrinho, mídia e recuperação | 43 testes aprovados                                  |
+| Build Next.js de produção                        | Aprovado, também executado pelos testes de navegador |
+| Chromium/Playwright                              | 12 cenários aprovados                                |
+| Auditoria npm completa e de produção             | 0 vulnerabilidades conhecidas na consulta realizada  |
 
 Os testes usam Node.js 24, PostgreSQL embarcado (PGlite) e Chromium. O build de integração aponta para o servidor local `tests/mock-supabase.mjs`, sem acessar dados ou credenciais de produção. O servidor simula HTTP/Auth/Storage para exercitar a aplicação; as regras SQL são verificadas separadamente em PostgreSQL real embarcado.
 
@@ -43,6 +43,9 @@ Os anexos `media-network.json` e `uploads.json` do relatório Playwright registr
 - Catálogo indisponível retorna erro, sem exibir produtos fictícios da demonstração.
 - Layout móvel de 390 × 844 px sem estouro horizontal; seleção de sabor e carrinho.
 - Login administrativo, upload JPEG/HEIC real e salvamento de produto no backend local simulado.
+- Recuperação por e-mail com PKCE, tokens do Dashboard e TokenHash de template personalizado.
+- Confirmação da nova senha, rejeição da senha antiga e login com a nova senha no Auth simulado.
+- Link expirado/inválido mesmo com sessão anterior, limite de envio e abertura na mesma aba.
 - Instalação nova do SQL e atualização do schema v1, com reexecução sem duplicar/apagar os registros existentes.
 - Leitura pública limitada a ativos, escrita negada para visitante/viewer e gerenciamento autorizado ao admin.
 - Relações categoria/tipo, promoção inválida, exclusão de tipo e exclusão de categoria preservando o produto.
@@ -85,8 +88,33 @@ Não houve acesso às credenciais/painéis da Vercel ou do Supabase de produçã
 5. Solicitar a mesma URL de imagem duas vezes na Vercel e conferir `x-vercel-cache: HIT` na segunda, além dos cabeçalhos de cache. Regiões diferentes, expiração ou expulsão do cache podem gerar outro MISS.
 6. Conferir o WhatsApp com pedido de teste sem enviar mensagens reais involuntariamente; validar preços e sabores.
 7. Comparar as métricas dos provedores por 7–14 dias: egress do Supabase, transferência/invocações Vercel e consumo do otimizador de imagens.
+8. Publicar a rota `/redefinir-senha`, autorizar sua URL em Authentication → URL Configuration e validar com uma conta de teste os e-mails enviados pelo aplicativo e pelo Dashboard. Veja `RECUPERACAO-DE-SENHA.md`.
 
 A viewport móvel foi testada em Chromium; não equivale a teste físico de Safari/iPhone. O fluxo não cria reserva de estoque ou transação de pagamento. A aplicação oferece confirmação atualizada antes do link, mas a loja ainda confirma o pedido.
+
+## Recuperação de senha
+
+<!-- Problema: o link de recuperação chegava ao catálogo, sem tela para cadastrar
+a nova senha. A validação cobre a autorização e a gravação no Auth com o SDK real
+e backend HTTP simulado. Data: 2026-11-12. @author Carla Evelyn -->
+
+Sete cenários de navegador adicionais verificam o link **Alterar senha** abaixo
+do campo de login, a rota pública, o pedido de e-mail com retorno à origem atual,
+o código PKCE com verificador e `sb_flow_id`, e os tokens enviados à página inicial
+pelo Dashboard. Também cobrem confirmação divergente sem gravação, atualização da
+senha, saída da sessão e login aceitando somente a nova senha no backend de teste.
+
+Outros caminhos exercitados incluem link expirado, código inválido com sessão
+prévia, TokenHash, resposta de limite de envio, navegação por fragmento na mesma
+aba, layout de 390 px e cabeçalhos `no-store`/`no-referrer`. O cenário do Dashboard
+confirma que a entrada pela página inicial não consulta `/api/catalog`. As
+capturas `login-password-link.png` e `recovery-mobile.png` registram as telas.
+
+Dez testes unitários adicionais verificam a interpretação de links, a navegação
+comum sem recuperação, a preservação do identificador PKCE, a ausência de
+redirecionamento externo e as regras de senha. Nenhum teste enviou e-mail real ou
+alterou senha no Supabase de produção; essa confirmação depende do deploy e das
+URLs autorizadas na conta.
 
 ## Regressão do HTTP 503 local
 

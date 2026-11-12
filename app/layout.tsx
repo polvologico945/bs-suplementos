@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { RecoveryRedirect } from "@/components/auth/recovery-redirect";
 
 export const metadata: Metadata = {
   title: "BS Suplementos",
@@ -20,7 +21,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <RecoveryRedirect />
+        {children}
+      </body>
     </html>
   );
 }

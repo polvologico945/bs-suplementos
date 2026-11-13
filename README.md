@@ -53,6 +53,7 @@ Os testes de navegador iniciam um Supabase simulado **local**, compilam o aplica
 - [Recuperação e alteração de senha](docs/RECUPERACAO-DE-SENHA.md)
 - [Projeto completo, arquitetura e relações SQL](docs/PROJETO.md)
 - [Comparação de hospedagem e custos](docs/HOSPEDAGEM.md)
+- [Viabilidade de migração para Oracle Cloud Always Free](docs/ORACLE-CLOUD.md)
 - [Validação, cenários e limites dos testes](docs/VALIDACAO.md)
 
 ## Catálogo indisponível em localhost

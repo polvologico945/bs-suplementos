@@ -8,10 +8,28 @@ Primeiro publique a correção e acompanhe o consumo durante 7–14 dias. O prob
 
 Se as fotos continuarem dominando o consumo, a próxima opção é **manter Supabase Auth/PostgreSQL e mover somente as imagens para Cloudflare R2 com domínio de mídia**. Isso preserva a maior parte da aplicação e permite reduzir custos de saída. R2 é armazenamento, não substitui autenticação, banco, RLS ou administração do Supabase. A implementação desta branch ainda usa Supabase Storage; um adaptador R2 precisa ser feito e validado antes da migração.
 
+## Oracle Cloud Always Free — avaliação de 2026-11-13
+
+A Oracle é um candidato para hospedar o backend e também o Next.js. O caminho
+com menor alteração no código usa a distribuição aberta do Supabase na VM:
+banco/Auth/Storage continuam compatíveis, enquanto operação e backups passam
+a ser próprios. A alternativa de retirar também o SDK/Supabase exige refatorar
+as consultas, as sessões, as permissões e os uploads.
+
+A documentação atual de Free Tier informa **2 OCPUs e 12 GB de RAM** para A1,
+com 200 GB de Block Volume compartilhados e 10 TB/mês de saída. É necessário
+conferir a conta/região: há falta de capacidade, recolhimento de VMs ociosas e
+a oferta gratuita não inclui SLA. Esses fatores importam para uma loja ativa.
+
+O parecer com fontes, divergências documentais, componentes usados pelo projeto,
+custos e sequência de migração está em [ORACLE-CLOUD.md](ORACLE-CLOUD.md). Esta
+revisão não criou recursos Oracle, alterou o DNS ou transferiu dados da loja.
+
 ## Comparação
 
 | Opção                                           | Preço/franquias consultados                                                                                                                                                                  | Impacto para o projeto                                                                                                             |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Oracle Always Free + stack próprio              | Possibilidade de US$0 de infraestrutura dentro dos recursos elegíveis; ver avaliação específica                                                                                              | Maior manutenção própria; validar ARM, backup, capacidade, Auth, Storage e cache                                                   |
 | Supabase atual                                  | Free: 500 MB de banco, 1 GB de arquivos, 5 GB de egress + 5 GB de cached egress. Pro a partir de US$25/mês, com 8 GB de banco, 100 GB de arquivos e franquias de 250 GB por classe de egress | Sem reescrever Auth/RLS/SQL; menor risco operacional                                                                               |
 | Supabase + R2 Standard para fotos               | R2: 10 GB-mês, 1 milhão de operações A e 10 milhões B na franquia mensal; egress gratuito. Excedente de armazenamento: US$0,015/GB-mês                                                       | Melhor candidato se o custo restante for mídia; requer upload autorizado, novo domínio e migração de URLs                          |
 | Nhost                                           | Starter: 1 GB de banco, 1 GB de arquivos, 5 GB de egress; Pro a partir de US$25/mês                                                                                                          | Tem Postgres/Auth/Storage, mas API, permissões e sessões exigem adaptação; não é troca de URL do Supabase                          |

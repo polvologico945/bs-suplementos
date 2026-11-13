@@ -124,3 +124,8 @@ A capa apresenta as fotos com troca suave e pausa; produtos exibem uma galeria
 sob demanda. URLs e cache continuam compartilhados com o carrinho. Preferências
 de menos movimento e economia de dados interrompem a troca automática. Veja
 `docs/GALERIAS-E-ACESSIBILIDADE.md` para uso, SQL, consumo e melhorias de IHC.
+
+Para testar esta revisão, copie [o SQL da branch de teste](https://github.com/polvologico945/bs-suplementos/blob/fix/catalogo-imagens-e-confiabilidade/supabase/schema.sql).
+Na revisão de 2026-11-13, a `main` ainda continha o SQL antigo, que pode retornar
+`42710: policy ... already exists` ao ser repetido. No Supabase, abra **SQL Editor
+→ New query**, cole o arquivo atualizado inteiro e execute.

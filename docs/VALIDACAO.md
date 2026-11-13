@@ -8,7 +8,7 @@ Data: **2026-11-12**. Revisão: Carla Evelyn.
 | ---------------------------------------------------------- | ---------------------------------------------------- |
 | ESLint                                                     | Sem erros ou avisos no código do projeto             |
 | TypeScript estrito                                         | Aprovado                                             |
-| PostgreSQL/PGlite, carrinho, mídia, galerias e recuperação | 51 testes aprovados                                  |
+| PostgreSQL/PGlite, carrinho, mídia, galerias e recuperação | 52 testes aprovados                                  |
 | Build Next.js de produção                                  | Aprovado, também executado pelos testes de navegador |
 | Chromium/Playwright                                        | 19 cenários aprovados                                |
 | Auditoria npm completa e de produção                       | 0 vulnerabilidades conhecidas na consulta realizada  |
@@ -158,6 +158,22 @@ o envio/armazenamento do Supabase real. A avaliação cobre melhorias específic
 de acessibilidade em Chromium, sem certificação integral WCAG ou teste físico
 com Safari/iPhone/leitores de tela. Orientações de uso e migração estão em
 `GALERIAS-E-ACESSIBILIDADE.md`.
+
+## Reexecução de políticas e erro 42710
+
+Data: **2026-11-13**. @author Carla Evelyn.
+
+O SQL v1 disponível na `main` nesta revisão foi comparado com o arquivo da branch
+de teste. A versão antiga usa `CREATE POLICY` sem atualizar a política existente.
+Um teste de regressão reproduz exatamente o código `42710` e a mensagem
+`policy "Public read active categories" for table "categories" already exists`.
+
+Depois de reverter a tentativa antiga no banco de teste, o cenário aplica duas
+vezes o `supabase/schema.sql` atualizado. Verifica a preservação de IDs, nomes e
+URLs de produtos, além de uma única cópia de cada política esperada de categorias.
+O roteiro de atualização passou a incluir link explícito para a branch correta,
+cópia por Raw e execução completa em uma consulta nova. A captura do erro, por
+si só, não comprova qual arquivo/seleção foi executado no Supabase da conta.
 
 ## Regressão do HTTP 503 local
 

@@ -33,6 +33,51 @@ const LEGACY_BRANDS = `create table public.brands (
 );`;
 
 describe("compatibilidade SQL com constraints ausentes", () => {
+  it("reproduz 42710 no SQL v1 e reexecuta o schema atualizado com políticas existentes", async () => {
+    await withLegacyDatabase(async (db, migration) => {
+      const before = (
+        await db.query(
+          "select id,name,image_url from public.products order by id",
+        )
+      ).rows;
+      const oldSchema = (
+        await readFile("tests/fixtures/schema-v1.sql", "utf8")
+      ).replace("create extension if not exists pgcrypto;", "");
+      // Problema: o SQL antigo, ainda disponível na main, recria políticas sem
+      // DROP/ALTER e gera o erro relatado. A reprodução fica em uma transação
+      // revertida; depois verificamos o arquivo correto com os mesmos cadastros.
+      // Data: 2026-11-13. @author Carla Evelyn
+      await db.exec("begin;");
+      try {
+        await expect(db.exec(oldSchema)).rejects.toMatchObject({
+          code: "42710",
+          message:
+            'policy "Public read active categories" for table "categories" already exists',
+        });
+      } finally {
+        await db.exec("rollback;");
+      }
+      await db.exec(migration);
+      await db.exec(migration);
+      expect(
+        (
+          await db.query(
+            "select id,name,image_url from public.products order by id",
+          )
+        ).rows,
+      ).toEqual(before);
+      expect(
+        (
+          await db.query(
+            "select policyname from pg_policies where schemaname='public' and tablename='categories' order by policyname",
+          )
+        ).rows,
+      ).toEqual([
+        { policyname: "Admin manages categories" },
+        { policyname: "Public read active categories" },
+      ]);
+    });
+  });
   it("acrescenta galerias sem regravar foto ou promoção legada pendente de revisão", async () => {
     await withLegacyDatabase(async (db, migration) => {
       await db.exec(

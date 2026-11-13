@@ -7,7 +7,7 @@ Data: **2026-11-12**. @author Carla Evelyn.
 A implementação está na branch `fix/catalogo-imagens-e-confiabilidade`.
 
 1. Pare o servidor, atualize a branch com `git pull --ff-only origin fix/catalogo-imagens-e-confiabilidade` e execute `npm run dev`.
-2. No mesmo projeto Supabase usado por `.env.local`/Preview, abra **SQL Editor**, cole o arquivo **`supabase/schema.sql` atualizado inteiro** e execute. A migração é aditiva, transacional e reexecutável; não reinicia produtos, fotos, usuários ou senhas.
+2. No mesmo projeto Supabase usado por `.env.local`/Preview, abra **SQL Editor → New query**, cole o arquivo **`supabase/schema.sql` atualizado inteiro, da branch de teste**, e execute. Use [este arquivo da branch `fix/catalogo-imagens-e-confiabilidade`](https://github.com/polvologico945/bs-suplementos/blob/fix/catalogo-imagens-e-confiabilidade/supabase/schema.sql): clique em **Raw**, copie todo o conteúdo e cole na consulta nova. A migração é aditiva, transacional e reexecutável; não reinicia produtos, fotos, usuários ou senhas.
 3. Abra o painel. Em **Produtos → Novo produto/Editar**, use **Fotos do produto**. Em **Aparência e loja → Imagens do site**, use **Fotos da capa**.
 4. Selecione uma ou várias fotos. É possível manter apenas uma ou não cadastrar fotos. O limite é **seis fotos por produto e seis na capa**.
 5. As setas alteram a ordem, a estrela define a principal e a lixeira remove a foto da seleção. A primeira foto sempre é a principal. Clique em **Salvar produto** ou **Salvar configurações** para publicar.
@@ -16,6 +16,24 @@ A implementação está na branch `fix/catalogo-imagens-e-confiabilidade`.
 Sem o SQL novo, o catálogo continua lendo os dados existentes e o painel mantém o seletor de foto única, com orientação para atualizar o schema. A leitura compatível preserva sabores, marcas e tipos de produto. O modo demonstração também continua disponível sem configuração de backend, conforme as regras anteriores.
 
 O logotipo e as imagens de categorias continuam com foto única. As galerias opcionais se aplicam aos produtos e à capa.
+
+### Erro 42710: política já existe
+
+<!-- Problema: o arquivo antigo da main continuava acessível e falhava ao ser
+reexecutado em um banco existente. O guia aponta para a branch validada e evita
+a cópia parcial ou a mistura de versões. Data: 2026-11-13. @author Carla Evelyn -->
+
+Na revisão de 2026-11-13, a `main` ainda continha o SQL v1, que executa
+`CREATE POLICY "Public read active categories"` sem uma atualização prévia da
+política. Reexecutar esse arquivo reproduz `42710: policy ... already exists`.
+O SQL atualizado da branch de teste substitui as políticas conhecidas dentro de
+uma transação e pode ser executado novamente em um banco que já as possui.
+
+Use o link direto do passo 2, em uma consulta nova, com o arquivo inteiro. Não
+misture o SQL antigo com trechos novos. O arquivo correto começa com
+`-- Instalação e atualização aditiva do catálogo.` e contém as colunas
+`image_urls` e `hero_image_urls`. Não é necessário excluir produtos, fotos ou
+políticas manualmente para repetir a atualização.
 
 ## Produtos
 
